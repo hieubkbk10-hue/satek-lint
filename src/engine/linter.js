@@ -686,9 +686,12 @@ export function lintFile(filePath, targetDir, activeRules = RULES) {
 
       if (hasDisplayContents) {
         // Chỉ bắt khi áp dụng trên thẻ table, component table hoặc trong file Table/Grid
-        const isTableElement = /<(?:table|thead|tbody|tfoot|tr|th|td|caption|colgroup|Table|TableHeader|TableBody|TableRow|TableCell|TableHead|Tr|Th|Td)\b/i.test(
-          cleanLine
-        );
+        const isTableElement =
+          /<(?:table|thead|tbody|tfoot|tr|th|td|caption|colgroup|col|Table|TableHeader|TableBody|TableRow|TableCell|TableHead|Tr|Th|Td|DataGrid|GridTable)\b/i.test(
+            cleanLine
+          ) ||
+          /<Table\.(?:Header|Body|Row|Cell|Head)\b/i.test(cleanLine) ||
+          /role=['"](?:table|row|cell|grid|gridcell|rowgroup|columnheader|rowheader)['"]/i.test(cleanLine);
         const isTableFile = /table|grid/i.test(relativePath);
 
         if (isTableElement || isTableFile) {
