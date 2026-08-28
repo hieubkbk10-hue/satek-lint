@@ -761,6 +761,30 @@ export function lintFile(filePath, targetDir, activeRules = RULES) {
         return;
       }
 
+      if (
+        rule.code === 'RULE-MOCK-001' &&
+        (isStore ||
+          cleanLine.includes('pageSize') ||
+          cleanLine.includes('perPage') ||
+          cleanLine.includes('per_page') ||
+          cleanLine.includes('page') ||
+          cleanLine.includes('limit') ||
+          cleanLine.includes('formPriority') ||
+          cleanLine.includes('priority') ||
+          cleanLine.includes('PORT') ||
+          cleanLine.includes('timeout') ||
+          cleanLine.includes('delay') ||
+          cleanLine.includes('duration') ||
+          cleanLine.includes('diameter') ||
+          cleanLine.includes('size') ||
+          cleanLine.includes('width') ||
+          cleanLine.includes('height') ||
+          cleanLine.includes('thickness') ||
+          cleanLine.includes('offset'))
+      ) {
+        return;
+      }
+
       if (rule.code === 'RULE-BARREL-002' && !isRouteFile) {
         return;
       }
