@@ -318,27 +318,58 @@ export function lintFile(filePath, targetDir, activeRules = RULES) {
             const block = content.substring(braceIndex, endIndex + 1);
             const line = content.substring(0, match.index).split('\n').length;
 
+            // Kiểm tra các trường hợp ngoại lệ hợp lệ (Stateless / Transient / Optimistic / Tool):
+            const isAuthOrUploadFile =
+              relativePath.includes('authApi') ||
+              relativePath.includes('uploadApi') ||
+              relativePath.includes('fileApi') ||
+              relativePath.includes('mediaApi') ||
+              relativePath.includes('sessionApi');
+
+            const isTransientEndpoint =
+              /^(?:login|logout|register|refreshToken|forgotPassword|resetPassword|sendOtp|verifyOtp|changePassword|upload|download|export|import|check|validate|verify|calculate|lookup|preview|searchWhois|ping|health)/i.test(
+                endpointName
+              );
+
+            const hasOptimisticUpdate =
+              block.includes('onQueryStarted') || block.includes('updateQueryData');
+
+            const hasLogicComment = block.includes('LOGIC:') || block.includes('-- LOGIC:');
+
             if (type === 'mutation' && checkMutation) {
               const hasInvalidates = block.includes('invalidatesTags');
-              const hasLogicComment = block.includes('LOGIC:') || block.includes('-- LOGIC:');
-              if (!hasInvalidates && !hasLogicComment) {
+              // Bỏ qua nếu là file Auth/Upload, endpoint transient, optimistic update hoặc có logic comment
+              if (
+                !hasInvalidates &&
+                !hasLogicComment &&
+                !isAuthOrUploadFile &&
+                !isTransientEndpoint &&
+                !hasOptimisticUpdate
+              ) {
                 violations.push({
                   line,
                   ruleCode: 'RULE-RTK-001',
-                  ruleName: 'Missing invalidatesTags in RTK Query Mutation',
+                  ruleName: 'Missing invalidatesTags in RTK Query Resource Mutation',
                   category: RULE_CATEGORY.RTK_QUERY,
                   severity: RULE_SEVERITY.CRITICAL,
                   matchedText: `${endpointName}: builder.mutation`,
                   codeSnippet: `${endpointName}: builder.mutation(...) thiếu cấu hình invalidatesTags`,
-                  fix: `Thêm invalidatesTags: ['TagName'] (hoặc invalidatesTags: []) vào endpoint ${endpointName}.`,
+                  fix: `Thêm invalidatesTags: ['TagName'] vào endpoint ${endpointName} (hoặc chú thích // -- LOGIC: nếu là mutation đặc thù).`,
                 });
               }
             } else if (type === 'query' && checkQuery) {
-              if (!block.includes('providesTags')) {
+              const hasProvides = block.includes('providesTags');
+              // Bỏ qua nếu là file Auth/Upload, endpoint transient, hoặc có logic comment
+              if (
+                !hasProvides &&
+                !hasLogicComment &&
+                !isAuthOrUploadFile &&
+                !isTransientEndpoint
+              ) {
                 violations.push({
                   line,
                   ruleCode: 'RULE-RTK-002',
-                  ruleName: 'Missing providesTags in RTK Query Query',
+                  ruleName: 'Missing providesTags in RTK Query Resource Query',
                   category: RULE_CATEGORY.RTK_QUERY,
                   severity: RULE_SEVERITY.MAJOR,
                   matchedText: `${endpointName}: builder.query`,
