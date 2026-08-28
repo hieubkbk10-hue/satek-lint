@@ -77,7 +77,7 @@ Sử dụng:
     process.exit(0);
   }
 
-  // 3. Parse Rule Filter (--rule=<CODE>, --rule <CODE>, --RULE-...)
+  // 3. Parse Rule Filter (--rule=<CODE>, --rule <CODE>, RULE-..., --RULE-...)
   let targetRule = null;
   const ruleArg = args.find((a) => a.startsWith('--rule=') || a.startsWith('-r='));
   if (ruleArg) {
@@ -87,7 +87,7 @@ Sử dụng:
     if (rIdx !== -1 && args[rIdx + 1] && !args[rIdx + 1].startsWith('-')) {
       targetRule = args[rIdx + 1];
     } else {
-      const directRule = args.find((a) => /^--?RULE-[A-Z]+-\d+/i.test(a));
+      const directRule = args.find((a) => /^(?:--?)?RULE-[A-Z]+-\d+/i.test(a));
       if (directRule) {
         targetRule = directRule.replace(/^--?/, '');
       }
