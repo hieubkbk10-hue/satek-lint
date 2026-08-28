@@ -234,18 +234,6 @@ export const RULES = [
     matchRegex: /from\s+['"]@\/store\/api\/[a-zA-Z0-9]+Api['"]/g,
     appliesTo: ['Component', 'Pages'],
   },
-  {
-    code: 'RULE-COMMON-001',
-    name: 'Deprecated Legacy Common Reference',
-    category: RULE_CATEGORY.CIRCULAR_DEPENDENCY,
-    severity: RULE_SEVERITY.MINOR,
-    preset: 'migration',
-    scope: 'Toàn bộ file nguồn src/**/*.{ts,tsx,js,jsx}',
-    description: 'Không import từ thư mục cũ @/components/common/admin hoặc tham chiếu hằng số cũ ADMIN_UI_TOKENS.',
-    fix: 'Import từ các thư mục con tương ứng (@/components/common/table, @/components/common/cards...) và dùng Tailwind tokens.',
-    matchRegex: /@\/components\/common\/admin|ADMIN_UI_TOKENS/g,
-    appliesTo: ['Component', 'Store', 'Routes'],
-  },
 
   // ==========================================================================
   // NHÓM 4: API & RTK QUERY STANDARDS
