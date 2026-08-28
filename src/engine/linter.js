@@ -677,9 +677,38 @@ export function lintFile(filePath, targetDir, activeRules = RULES) {
       }
     }
 
+    // RULE-UI-001: Forbidden display: contents on Table & Complex Grid Elements
+    if (activeRules.some((r) => r.code === 'RULE-UI-001')) {
+      const hasDisplayContents =
+        /display:\s*['"]?contents['"]?/.test(cleanLine) ||
+        /\bclassName\s*=\s*['"][^'"]*\bcontents\b[^'"]*['"]/.test(cleanLine) ||
+        /\bcn\s*\([^)]*\bcontents\b[^)]*\)/.test(cleanLine);
+
+      if (hasDisplayContents) {
+        // Chỉ bắt khi áp dụng trên thẻ table, component table hoặc trong file Table/Grid
+        const isTableElement = /<(?:table|thead|tbody|tfoot|tr|th|td|caption|colgroup|Table|TableHeader|TableBody|TableRow|TableCell|TableHead|Tr|Th|Td)\b/i.test(
+          cleanLine
+        );
+        const isTableFile = /table|grid/i.test(relativePath);
+
+        if (isTableElement || isTableFile) {
+          violations.push({
+            line: lineIdx + 1,
+            ruleCode: 'RULE-UI-001',
+            ruleName: 'Forbidden display: contents on Table & Complex Grid Elements',
+            category: RULE_CATEGORY.HTML_STANDARDS,
+            severity: RULE_SEVERITY.MAJOR,
+            matchedText: 'display: contents',
+            codeSnippet: trimmed,
+            fix: 'Sử dụng React Fragment (<>...</>) hoặc các thẻ bảng chuẩn (tr, td, th) thay vì ép display: contents lên phần tử bảng.',
+          });
+        }
+      }
+    }
+
     // Quét rules có regex
     activeRules.forEach((rule) => {
-      if (rule.code === 'RULE-MOCK-002' || rule.code === 'RULE-ROUTE-005') {
+      if (rule.code === 'RULE-MOCK-002' || rule.code === 'RULE-ROUTE-005' || rule.code === 'RULE-UI-001') {
         return;
       }
 
@@ -706,12 +735,25 @@ export function lintFile(filePath, targetDir, activeRules = RULES) {
         return;
       }
 
+      if (
+        rule.code === 'RULE-RADIUS-001' &&
+        (lineText.includes('CUSTOM_RADIUS') ||
+          lineText.includes('custom_radius') ||
+          lineText.includes('-- LOGIC:') ||
+          cleanLine.includes('CUSTOM_RADIUS'))
+      ) {
+        return;
+      }
+
       if (rule.matchRegex) {
         const matches = [...cleanLine.matchAll(rule.matchRegex)];
         if (matches.length > 0) {
           matches.forEach((m) => {
             const rawMatch = m[0] || '';
-            const cleanedText = rawMatch.trim().replace(/^['"`]+|['"`]+$/g, '');
+            let cleanedText = rawMatch.trim().replace(/^['"`]+|['"`]+$/g, '');
+            if (rule.code === 'RULE-IMPORT-001') {
+              cleanedText = cleanedText.replace(/^from\s+['"]?/, '').replace(/['"]+$/, '');
+            }
             violations.push({
               line: lineIdx + 1,
               ruleCode: rule.code,
@@ -923,25 +965,53 @@ export function runLintEngine(options = {}) {
   const projectInfo = detectProject(detectDir);
 
   let activeRules = RULES;
-  if (options.preset && options.preset !== 'all') {
-    if (options.preset === 'strict' || options.preset === 'ci') {
-      activeRules = RULES.filter((r) => r.severity === RULE_SEVERITY.CRITICAL || r.severity === RULE_SEVERITY.MAJOR);
-    } else if (options.preset === 'migration' || options.preset === 'warn') {
-      activeRules = RULES.filter((r) => r.severity === RULE_SEVERITY.MINOR || r.severity === RULE_SEVERITY.INFO);
-    } else if (options.preset === 'tokens') {
+
+  // 1. Lọc theo Rule cụ thể (options.rule)
+  if (options.rule) {
+    const cleanRule = options.rule.replace(/^--?/, '').trim().toLowerCase();
+    activeRules = RULES.filter(
+      (r) =>
+        r.code.toLowerCase() === cleanRule ||
+        r.code.toLowerCase().includes(cleanRule) ||
+        r.name.toLowerCase().includes(cleanRule)
+    );
+  }
+  // 2. Lọc theo Nhóm Rule (options.group hoặc options.preset)
+  else if (options.group || (options.preset && options.preset !== 'all')) {
+    const targetGroup = (options.group || options.preset).toLowerCase();
+
+    if (targetGroup === 'i18n') {
+      activeRules = RULES.filter((r) => r.code === 'RULE-I18N-001');
+    } else if (targetGroup === 'radius') {
+      activeRules = RULES.filter((r) => r.code === 'RULE-RADIUS-001');
+    } else if (targetGroup === 'mock' || targetGroup === 'mocks') {
+      activeRules = RULES.filter(
+        (r) =>
+          r.code.startsWith('RULE-MOCK') ||
+          r.code.startsWith('RULE-DEAD') ||
+          r.code.startsWith('RULE-CONSOLE')
+      );
+    } else if (targetGroup === 'color' || targetGroup === 'colors') {
+      activeRules = RULES.filter((r) => r.category === RULE_CATEGORY.COLOR_TOKENS);
+    } else if (targetGroup === 'tokens') {
       activeRules = RULES.filter(
         (r) =>
           r.category === RULE_CATEGORY.COLOR_TOKENS ||
           r.category === RULE_CATEGORY.BORDER_RADIUS ||
           r.category === RULE_CATEGORY.THEME_SSOT
       );
-    } else if (options.preset === 'router') {
+    } else if (targetGroup === 'rtk') {
+      activeRules = RULES.filter(
+        (r) => r.category === RULE_CATEGORY.RTK_QUERY || r.code.startsWith('RULE-RTK')
+      );
+    } else if (targetGroup === 'router') {
       activeRules = RULES.filter(
         (r) =>
           r.category === RULE_CATEGORY.ROUTER_ARCHITECTURE ||
-          r.category === RULE_CATEGORY.NAMING_CONVENTION
+          r.code.startsWith('RULE-ROUTE') ||
+          r.code.startsWith('RULE-PARAM')
       );
-    } else if (options.preset === 'architecture') {
+    } else if (targetGroup === 'arch' || targetGroup === 'architecture') {
       activeRules = RULES.filter(
         (r) =>
           r.category === RULE_CATEGORY.ROUTER_ARCHITECTURE ||
@@ -950,10 +1020,28 @@ export function runLintEngine(options = {}) {
           r.category === RULE_CATEGORY.RTK_QUERY ||
           r.category === RULE_CATEGORY.FOLDER_COLOCATION
       );
-    } else if (options.preset === 'universal') {
+    } else if (targetGroup === 'types') {
+      activeRules = RULES.filter(
+        (r) => r.category === RULE_CATEGORY.TYPE_SAFETY || r.code.startsWith('RULE-TYPE')
+      );
+    } else if (targetGroup === 'react') {
+      activeRules = RULES.filter(
+        (r) =>
+          r.category === RULE_CATEGORY.REACT_PATTERNS ||
+          r.category === RULE_CATEGORY.HTML_STANDARDS
+      );
+    } else if (targetGroup === 'strict' || targetGroup === 'ci') {
+      activeRules = RULES.filter(
+        (r) => r.severity === RULE_SEVERITY.CRITICAL || r.severity === RULE_SEVERITY.MAJOR
+      );
+    } else if (targetGroup === 'migration' || targetGroup === 'warn') {
+      activeRules = RULES.filter(
+        (r) => r.severity === RULE_SEVERITY.MINOR || r.severity === RULE_SEVERITY.INFO
+      );
+    } else if (targetGroup === 'universal') {
       activeRules = RULES.filter((r) => r.preset === 'universal' || r.preset === 'ci');
     } else {
-      activeRules = RULES.filter((r) => r.preset === options.preset);
+      activeRules = RULES.filter((r) => r.preset === targetGroup);
     }
   }
 

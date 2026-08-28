@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * UNIVERSAL FRONTEND REPORTER ENGINE
+ * UNIVERSAL FRONTEND REPORTER ENGINE (OPTIMIZED FOR AI AGENTS & DEVELOPERS)
  * ============================================================================
  */
 
@@ -22,16 +22,38 @@ const COLORS = {
   bgCyan: '\x1b[46m',
 };
 
-export function renderRuleCatalog(format = 'text') {
+export function renderRuleCatalog(format = 'text', filter = null) {
+  let targetRules = RULES;
+  if (filter) {
+    const cleanFilter = filter.replace(/^--?/, '').trim().toLowerCase();
+    targetRules = RULES.filter(
+      (r) =>
+        r.code.toLowerCase() === cleanFilter ||
+        r.code.toLowerCase().includes(cleanFilter) ||
+        r.name.toLowerCase().includes(cleanFilter) ||
+        (r.category && r.category.toLowerCase().includes(cleanFilter))
+    );
+  }
+
   if (format === 'json') {
-    console.log(JSON.stringify({ totalRules: RULES.length, rules: RULES }, null, 2));
-    return 0;
+    console.log(JSON.stringify({ totalRules: targetRules.length, rules: targetRules }, null, 2));
+    return targetRules.length > 0 ? 0 : 1;
+  }
+
+  if (targetRules.length === 0) {
+    console.log(`\n${COLORS.red}✖ Không tìm thấy quy tắc nào khớp với từ khóa: "${filter}"${COLORS.reset}`);
+    console.log(`${COLORS.dim}💡 Gợi ý: Dùng satek-lint --rules để xem toàn bộ danh mục quy tắc.${COLORS.reset}\n`);
+    return 1;
   }
 
   console.log(`\n${COLORS.bright}${COLORS.bgBlue} UNIVERSAL REACT & FRONTEND ARCHITECTURE RULE CATALOG ${COLORS.reset}`);
-  console.log(`${COLORS.dim}Tổng cộng ${RULES.length} quy tắc tiêu chuẩn đang được kích hoạt và kiểm soát tự động:\n${COLORS.reset}`);
+  if (filter) {
+    console.log(`${COLORS.dim}Tìm thấy ${targetRules.length} quy tắc khớp với từ khóa "${filter}":\n${COLORS.reset}`);
+  } else {
+    console.log(`${COLORS.dim}Tổng cộng ${RULES.length} quy tắc tiêu chuẩn đang được kích hoạt và kiểm soát tự động:\n${COLORS.reset}`);
+  }
 
-  RULES.forEach((rule) => {
+  targetRules.forEach((rule) => {
     const sevColor =
       rule.severity === RULE_SEVERITY.CRITICAL
         ? COLORS.red
@@ -40,9 +62,11 @@ export function renderRuleCatalog(format = 'text') {
         : COLORS.cyan;
 
     const presetTag = `${COLORS.dim}[Preset: ${rule.preset || 'universal'}]${COLORS.reset}`;
+    const scopeText = rule.scope || (Array.isArray(rule.appliesTo) ? rule.appliesTo.join(', ') : 'Toàn bộ dự án');
 
     console.log(`${COLORS.bright}[${rule.code}]${COLORS.reset} ${COLORS.white}${rule.name}${COLORS.reset} ${presetTag}`);
     console.log(`   Danh mục  : ${COLORS.cyan}${rule.category}${COLORS.reset}`);
+    console.log(`   Phạm vi   : ${COLORS.magenta}${scopeText}${COLORS.reset}`);
     console.log(`   Mức độ    : ${sevColor}${rule.severity}${COLORS.reset}`);
     console.log(`   Mô tả     : ${COLORS.dim}${rule.description}${COLORS.reset}`);
     console.log(`   Cách Fix  : ${COLORS.green}${rule.fix}${COLORS.reset}\n`);
@@ -91,7 +115,13 @@ export function renderScanResults(results, summary, projectInfo = {}, format = '
     filesWithIssues.forEach((fileRes) => {
       fileRes.violations.forEach((v) => {
         globalErrorIndex++;
-        const codeBadge = `${COLORS.red}[${v.ruleCode}]${COLORS.reset}`;
+        const codeBadge =
+          v.severity === 'CRITICAL'
+            ? `${COLORS.red}[${v.ruleCode}]${COLORS.reset}`
+            : v.severity === 'MAJOR'
+            ? `${COLORS.yellow}[${v.ruleCode}]${COLORS.reset}`
+            : `${COLORS.cyan}[${v.ruleCode}]${COLORS.reset}`;
+
         console.log(
           `${COLORS.bright}#${globalErrorIndex}${COLORS.reset} ${codeBadge} ${COLORS.yellow}${fileRes.relativePath}:${v.line}${COLORS.reset} - ${COLORS.bright}${v.ruleName}${COLORS.reset}`
         );
@@ -108,7 +138,15 @@ export function renderScanResults(results, summary, projectInfo = {}, format = '
   // Thống kê phân loại lỗi
   const ruleCounts = {};
   const ruleNames = {};
+  const fileErrorCounts = [];
+
   results.forEach((fileRes) => {
+    if (fileRes.violations.length > 0) {
+      fileErrorCounts.push({
+        path: fileRes.relativePath,
+        count: fileRes.violations.length,
+      });
+    }
     fileRes.violations.forEach((v) => {
       ruleCounts[v.ruleCode] = (ruleCounts[v.ruleCode] || 0) + 1;
       ruleNames[v.ruleCode] = v.ruleName;
@@ -117,6 +155,10 @@ export function renderScanResults(results, summary, projectInfo = {}, format = '
 
   const topViolations = Object.entries(ruleCounts)
     .sort((a, b) => b[1] - a[1])
+    .slice(0, 5);
+
+  const topFiles = fileErrorCounts
+    .sort((a, b) => b.count - a.count)
     .slice(0, 5);
 
   console.log(`========================================================================================`);
@@ -130,9 +172,25 @@ export function renderScanResults(results, summary, projectInfo = {}, format = '
   if (topViolations.length > 0) {
     console.log(`\n🔥 Top quy tắc vi phạm nhiều nhất:`);
     topViolations.forEach(([code, count], i) => {
-      console.log(`   ${i + 1}. [${code}] ${ruleNames[code]}: ${COLORS.red}${count} lỗi${COLORS.reset}`);
+      console.log(`   ${i + 1}. [${code}] ${ruleNames[code]}: ${COLORS.red}${count} lỗi${COLORS.reset}  👉  ${COLORS.dim}satek-lint --rule=${code}${COLORS.reset}`);
     });
   }
+
+  if (topFiles.length > 0) {
+    console.log(`\n🎯 Top 5 tệp tin cần ưu tiên xử lý:`);
+    topFiles.forEach((f, i) => {
+      console.log(`   ${i + 1}. ${COLORS.yellow}${f.path}${COLORS.reset} (${COLORS.red}${f.count} lỗi${COLORS.reset})  👉  ${COLORS.dim}satek-lint --path=${f.path}${COLORS.reset}`);
+    });
+  }
+
+  console.log(`\n💡 LỆNH GỢI Ý ĐỂ AI AGENT / DEV QUÉT THEO NHÓM ĐỂ SỬA DẦN:`);
+  console.log(`   • Quét riêng Tiếng Việt:   ${COLORS.cyan}satek-lint --group=i18n${COLORS.reset}   (hoặc: ${COLORS.cyan}satek-lint --i18n${COLORS.reset})`);
+  console.log(`   • Quét riêng Bo góc:       ${COLORS.cyan}satek-lint --group=radius${COLORS.reset} (hoặc: ${COLORS.cyan}satek-lint --radius${COLORS.reset})`);
+  console.log(`   • Quét riêng Kiến trúc/RTK: ${COLORS.cyan}satek-lint --group=arch${COLORS.reset}   (hoặc: ${COLORS.cyan}satek-lint --arch${COLORS.reset})`);
+  console.log(`   • Quét riêng Mock Data:    ${COLORS.cyan}satek-lint --group=mock${COLORS.reset}   (hoặc: ${COLORS.cyan}satek-lint --mock${COLORS.reset})`);
+  console.log(`   • Quét riêng Màu sắc SSOT:  ${COLORS.cyan}satek-lint --group=color${COLORS.reset}  (hoặc: ${COLORS.cyan}satek-lint --color${COLORS.reset})`);
+  console.log(`   • Quét riêng 1 rule bất kỳ: ${COLORS.cyan}satek-lint --rule=RULE-RTK-001${COLORS.reset}`);
+  console.log(`   • Mở Dashboard tương tác:   ${COLORS.cyan}satek-lint --tui${COLORS.reset}`);
   console.log(`========================================================================================\n`);
 
   return summary.totalViolations === 0 ? 0 : 1;
