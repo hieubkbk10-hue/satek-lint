@@ -793,14 +793,54 @@ export function lintFile(filePath, targetDir, activeRules = RULES) {
         return;
       }
 
-      if (
-        rule.code === 'RULE-RADIUS-001' &&
-        (lineText.includes('CUSTOM_RADIUS') ||
+      if (rule.code === 'RULE-RADIUS-001') {
+        const isCurrentLineBypassed =
+          lineText.includes('CUSTOM_RADIUS') ||
           lineText.includes('custom_radius') ||
           lineText.includes('-- LOGIC:') ||
-          cleanLine.includes('CUSTOM_RADIUS'))
-      ) {
-        return;
+          cleanLine.includes('CUSTOM_RADIUS');
+
+        if (isCurrentLineBypassed) {
+          return;
+        }
+
+        // Kiểm tra các dòng chú thích liền trước (hỗ trợ {/* CUSTOM_RADIUS */} hoặc // CUSTOM_RADIUS ở dòng trên)
+        let isPrevLineBypassed = false;
+        for (let i = 1; i <= 3; i++) {
+          const prevIdx = lineIdx - i;
+          if (prevIdx < 0) break;
+          const prevLine = lines[prevIdx];
+          const prevTrimmed = prevLine.trim();
+
+          if (
+            prevLine.includes('CUSTOM_RADIUS') ||
+            prevLine.includes('custom_radius') ||
+            prevLine.includes('-- LOGIC:')
+          ) {
+            isPrevLineBypassed = true;
+            break;
+          }
+
+          // Dừng tìm ngược nếu gặp dòng code hoàn chỉnh độc lập không phải comment / JSX tag mở
+          if (
+            !prevTrimmed.startsWith('//') &&
+            !prevTrimmed.startsWith('/*') &&
+            !prevTrimmed.startsWith('{/*') &&
+            !prevTrimmed.startsWith('*') &&
+            !prevTrimmed.endsWith('*/}') &&
+            !prevTrimmed.startsWith('<') &&
+            !prevTrimmed.endsWith('>') &&
+            prevTrimmed.length > 0 &&
+            !prevTrimmed.endsWith('{') &&
+            !prevTrimmed.endsWith('(')
+          ) {
+            break;
+          }
+        }
+
+        if (isPrevLineBypassed) {
+          return;
+        }
       }
 
       if (rule.matchRegex) {
