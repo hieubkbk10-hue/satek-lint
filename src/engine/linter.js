@@ -182,17 +182,32 @@ export function lintFile(filePath, targetDir, activeRules = RULES) {
       fileName === 'route.tsx' ||
       fileName === 'layout.tsx';
 
-    // RULE-ROUTE-001: Thick Route
-    if (activeRules.some((r) => r.code === 'RULE-ROUTE-001')) {
+    // RULE-ROUTE-THIN: Enforce Thin Route Pattern (Merged RULE-ROUTE-001 & RULE-ROUTE-002)
+    const checkThinRoute = activeRules.some(
+      (r) =>
+        r.code === 'RULE-ROUTE-THIN' ||
+        r.code === 'RULE-ROUTE-001' ||
+        r.code === 'RULE-ROUTE-002' ||
+        (r.aliases && (r.aliases.includes('RULE-ROUTE-001') || r.aliases.includes('RULE-ROUTE-002')))
+    );
+
+    if (checkThinRoute && !isLayoutOrRoot) {
       const hasDirectLayoutJsx =
         /<(div|section|form|table|main|article|aside|header|footer|ul|ol|button|input|svg)\b[^>]*>/i.test(content) ||
         (content.includes('return (') && lines.length > 25);
 
-      if (!isLayoutOrRoot && hasDirectLayoutJsx) {
+      const codeWithoutComments = content.replace(/\/\*[\s\S]*?\*\/|\/\/.*/g, '');
+      const hasDirectHooks =
+        codeWithoutComments.includes('useState(') ||
+        codeWithoutComments.includes('useEffect(') ||
+        codeWithoutComments.includes('useQuery(') ||
+        codeWithoutComments.includes('useMutation(');
+
+      if (hasDirectLayoutJsx) {
         violations.push({
           line: 1,
-          ruleCode: 'RULE-ROUTE-001',
-          ruleName: 'Thick Route Component Detected',
+          ruleCode: 'RULE-ROUTE-THIN',
+          ruleName: 'Thin Route Delegation Pattern Violation',
           category: RULE_CATEGORY.ROUTER_ARCHITECTURE,
           severity: RULE_SEVERITY.CRITICAL,
           matchedText: `${lines.length} lines with inline JSX layout`,
@@ -200,21 +215,11 @@ export function lintFile(filePath, targetDir, activeRules = RULES) {
           fix: 'Chuyển toàn bộ JSX sang src/components/{module}/pages/{Module}Page.tsx và render 1 dòng tại route file.',
         });
       }
-    }
 
-    // RULE-ROUTE-002: Direct state/hooks in routes (strip comments first)
-    if (activeRules.some((r) => r.code === 'RULE-ROUTE-002')) {
-      const codeWithoutComments = content.replace(/\/\*[\s\S]*?\*\/|\/\/.*/g, '');
-      if (
-        !isLayoutOrRoot &&
-        (codeWithoutComments.includes('useState(') ||
-          codeWithoutComments.includes('useEffect(') ||
-          codeWithoutComments.includes('useQuery(') ||
-          codeWithoutComments.includes('useMutation('))
-      ) {
+      if (hasDirectHooks) {
         violations.push({
           line: 1,
-          ruleCode: 'RULE-ROUTE-002',
+          ruleCode: 'RULE-ROUTE-THIN',
           ruleName: 'Route File Direct Hooks / State / Mutation Call',
           category: RULE_CATEGORY.ROUTER_ARCHITECTURE,
           severity: RULE_SEVERITY.CRITICAL,
@@ -378,6 +383,31 @@ export function lintFile(filePath, targetDir, activeRules = RULES) {
                 });
               }
             }
+
+            // RULE-RTK-TAG-NAMING: PascalCase Resource Tags
+            if (activeRules.some((r) => r.code === 'RULE-RTK-TAG-NAMING')) {
+              const tagMatches = [...block.matchAll(/(?:providesTags|invalidatesTags)\s*:\s*(?:\[([^\]]+)\]|\([^)]*\)\s*=>\s*\[([^\]]+)\])/g)];
+              for (const tm of tagMatches) {
+                const tagStr = tm[1] || tm[2] || '';
+                const stringTokens = [...tagStr.matchAll(/['"`]([a-zA-Z0-9_]+)['"`]/g)];
+                for (const st of stringTokens) {
+                  const tag = st[1];
+                  if (tag === 'type' || tag === 'id' || tag === 'LIST' || tag === 'ITEM' || tag === 'PARTIAL') continue;
+                  if (/^[a-z]/.test(tag)) {
+                    violations.push({
+                      line,
+                      ruleCode: 'RULE-RTK-TAG-NAMING',
+                      ruleName: 'Non-Standard RTK Query Cache Tag Name',
+                      category: RULE_CATEGORY.RTK_QUERY,
+                      severity: RULE_SEVERITY.MAJOR,
+                      matchedText: tag,
+                      codeSnippet: `Cache tag '${tag}' bắt đầu bằng chữ thường. Phải dùng PascalCase chuẩn.`,
+                      fix: `Đổi tên tag thành PascalCase: '${tag.charAt(0).toUpperCase() + tag.slice(1)}'.`,
+                    });
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -411,8 +441,15 @@ export function lintFile(filePath, targetDir, activeRules = RULES) {
     }
   }
 
-  // RULE-HTML-001: Nested interactive element in JSX
-  if (activeRules.some((r) => r.code === 'RULE-HTML-001')) {
+  // RULE-HTML-NESTING: Invalid HTML Element Nesting (Merged RULE-HTML-001 & RULE-HTML-002)
+  const checkHtmlNesting = activeRules.some(
+    (r) =>
+      r.code === 'RULE-HTML-NESTING' ||
+      r.code === 'RULE-HTML-001' ||
+      r.code === 'RULE-HTML-002' ||
+      (r.aliases && (r.aliases.includes('RULE-HTML-001') || r.aliases.includes('RULE-HTML-002')))
+  );
+  if (checkHtmlNesting) {
     const nestedPattern = /<(button|a)\b[^>]*>(?:(?!<\/\1>)[\s\S]){0,250}?<(?!\/)(button|a)\b[^>]*>/gi;
     let match;
     while ((match = nestedPattern.exec(content)) !== null) {
@@ -421,7 +458,7 @@ export function lintFile(filePath, targetDir, activeRules = RULES) {
       const line = content.substring(0, match.index).split('\n').length;
       violations.push({
         line,
-        ruleCode: 'RULE-HTML-001',
+        ruleCode: 'RULE-HTML-NESTING',
         ruleName: 'Nested Interactive Element in JSX',
         category: RULE_CATEGORY.HTML_STANDARDS,
         severity: RULE_SEVERITY.CRITICAL,
@@ -430,19 +467,16 @@ export function lintFile(filePath, targetDir, activeRules = RULES) {
         fix: 'Tách biệt 2 thẻ tương tác hoặc chuyển thẻ con thành <span> kèm onClick.',
       });
     }
-  }
 
-  // RULE-HTML-002: Invalid nested table cell
-  if (activeRules.some((r) => r.code === 'RULE-HTML-002')) {
     const tableCellPattern = /<(th|td)\b[^>]*>(?:(?!<\/\1>)[\s\S]){0,250}?<(?!\/)(th|td)\b[^>]*>/gi;
-    let match;
-    while ((match = tableCellPattern.exec(content)) !== null) {
-      const parentTag = match[1].toLowerCase();
-      const childTag = match[2].toLowerCase();
-      const line = content.substring(0, match.index).split('\n').length;
+    let tableMatch;
+    while ((tableMatch = tableCellPattern.exec(content)) !== null) {
+      const parentTag = tableMatch[1].toLowerCase();
+      const childTag = tableMatch[2].toLowerCase();
+      const line = content.substring(0, tableMatch.index).split('\n').length;
       violations.push({
         line,
-        ruleCode: 'RULE-HTML-002',
+        ruleCode: 'RULE-HTML-NESTING',
         ruleName: 'Invalid Nested Table Cell',
         category: RULE_CATEGORY.HTML_STANDARDS,
         severity: RULE_SEVERITY.CRITICAL,
@@ -450,6 +484,64 @@ export function lintFile(filePath, targetDir, activeRules = RULES) {
         codeSnippet: `Thẻ <${childTag}> bị lồng bên trong thẻ ô bảng <${parentTag}>.`,
         fix: 'Đặt các thẻ <th> và <td> cùng cấp bên trong thẻ <tr>.',
       });
+    }
+  }
+
+  // RULE-EFFECT-GUARD: Missing State Guard in useEffect Hook
+  if (activeRules.some((r) => r.code === 'RULE-EFFECT-GUARD')) {
+    const effectRegex = /useEffect\s*\(\s*\(\s*\)\s*=>\s*\{([\s\S]*?)\}\s*,\s*\[([\s\S]*?)\]\s*\)/g;
+    let effectMatch;
+    while ((effectMatch = effectRegex.exec(content)) !== null) {
+      const deps = (effectMatch[2] || '').trim();
+      // Bỏ qua nếu mảng dependency rỗng [] (chỉ chạy 1 lần khi mount / componentDidMount)
+      if (deps === '') {
+        continue;
+      }
+
+      const effectBody = effectMatch[1];
+      const setterMatches = [...effectBody.matchAll(/\b(set[A-Z][a-zA-Z0-9_]*)\s*\(/g)];
+      for (const sm of setterMatches) {
+        const setterName = sm[1];
+        if (
+          setterName === 'setTimeout' ||
+          setterName === 'setInterval' ||
+          setterName === 'setImmediate' ||
+          setterName === 'clearTimeout' ||
+          setterName === 'clearInterval'
+        ) {
+          continue;
+        }
+
+        const setterIndex = sm.index;
+        const codeBeforeSetter = effectBody.substring(0, setterIndex);
+
+        // Bỏ qua nếu setter nằm trong async callback như setTimeout / requestAnimationFrame
+        if (codeBeforeSetter.includes('setTimeout') || codeBeforeSetter.includes('requestAnimationFrame')) {
+          continue;
+        }
+
+        const lastIfIndex = codeBeforeSetter.lastIndexOf('if');
+        let hasGuard = false;
+        if (lastIfIndex !== -1) {
+          const ifSegment = codeBeforeSetter.substring(lastIfIndex);
+          if (ifSegment.includes('{') || ifSegment.includes('(')) {
+            hasGuard = true;
+          }
+        }
+        if (!hasGuard && !effectBody.includes('-- LOGIC:') && !effectBody.includes('// bypass')) {
+          const line = content.substring(0, effectMatch.index + setterIndex).split('\n').length;
+          violations.push({
+            line,
+            ruleCode: 'RULE-EFFECT-GUARD',
+            ruleName: 'Missing State Guard in useEffect Hook',
+            category: RULE_CATEGORY.REACT_PATTERNS,
+            severity: RULE_SEVERITY.MAJOR,
+            matchedText: `${setterName}(...) inside useEffect`,
+            codeSnippet: `Lệnh ${setterName} bên trong useEffect thiếu điều kiện bảo vệ if (data && data !== state).`,
+            fix: `Bọc ${setterName} trong điều kiện kiểm tra: if (data && data !== localState) { ${setterName}(data); }.`,
+          });
+        }
+      }
     }
   }
 
@@ -525,6 +617,21 @@ export function lintFile(filePath, targetDir, activeRules = RULES) {
     relativePath.includes('.test.') ||
     relativePath.includes('.spec.');
 
+  // Smart I18n context check: Chỉ kiểm tra tiếng Việt hardcode khi file CÓ dùng i18n hoặc là public flow
+  const usesI18n =
+    content.includes('useTranslation') ||
+    content.includes('trans(') ||
+    content.includes('selectCurrentLanguage');
+  const isCorePublicRoute =
+    relativePath.startsWith('routes/auth') ||
+    relativePath.startsWith('routes/cart') ||
+    relativePath.includes('components/auth/') ||
+    relativePath.includes('components/cart/');
+  const isI18nExplicit =
+    activeRules.length <= 2 &&
+    activeRules.some((r) => r.code === 'RULE-I18N-001' || r.code === 'RULE-I18N-002');
+  const shouldCheckI18n = (usesI18n || isCorePublicRoute || isI18nExplicit) && !isLocaleOrMockFile;
+
   // ==========================================================================
   // 6. LINE-BY-LINE TOKEN & REGEX SCANNING
   // ==========================================================================
@@ -575,24 +682,82 @@ export function lintFile(filePath, targetDir, activeRules = RULES) {
       if (cleanLine.includes(token)) compliantCount++;
     });
 
-    // RULE-I18N-001: Hardcoded Vietnamese text in JSX, Props, and Expressions
-    if (activeRules.some((r) => r.code === 'RULE-I18N-001') && !isLocaleOrMockFile) {
+    // RULE-I18N-001: Hardcoded Vietnamese text in JSX (Smart Context-Aware)
+    if (activeRules.some((r) => r.code === 'RULE-I18N-001') && shouldCheckI18n) {
       const jsxTextMatch = cleanLine.match(/>([^<>{}]*[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđÀÁẠẢÃÂẦẤẬẨẪĂẰẮẶẲẴÈÉẸẺẼÊỀẾỆỂỄÌÍỊỈĨÒÓỌỎÕÔỒỐỘỔỖƠỜỚỢỞỠÙÚỤỦŨƯỪỨỰỬỮỲÝỴỶỸĐ][^<>{}]*)</);
       const propMatch = cleanLine.match(/(?:\b(?:placeholder|title|aria-label|alt|label|description|buttonText|helperText|emptyText|text|header|heading)\s*=\s*(?:["']([^"']*[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđÀÁẠẢÃÂẦẤẬẨẪĂẰẮẶẲẴÈÉẸẺẼÊỀẾỆỂỄÌÍỊỈĨÒÓỌỎÕÔỒỐỘỔỖƠỜỚỢỞỠÙÚỤỦŨƯỪỨỰỬỮỲÝỴỶỸĐ][^"']*)["']|\{\s*["'`]([^"'`]*[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđÀÁẠẢÃÂẦẤẬẨẪĂẰẮẶẲẴÈÉẸẺẼÊỀẾỆỂỄÌÍỊỈĨÒÓỌỎÕÔỒỐỘỔỖƠỜỚỢỞỠÙÚỤỦŨƯỪỨỰỬỮỲÝỴỶỸĐ][^"'`]*)["`]\s*\}))/);
       const ternaryMatch = cleanLine.match(/(?:\?|:)\s*['"`]([^'"`]*[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđÀÁẠẢÃÂẦẤẬẨẪĂẰẮẶẲẴÈÉẸẺẼÊỀẾỆỂỄÌÍỊỈĨÒÓỌỎÕÔỒỐỘỔỖƠỜỚỢỞỠÙÚỤỦŨƯỪỨỰỬỮỲÝỴỶỸĐ][^'"`]*)['"`]/);
       const match = jsxTextMatch || propMatch || ternaryMatch;
       if (match) {
         const textFound = (match[1] || match[2] || match[0]).trim();
+        const isIgnored =
+          textFound.length <= 2 ||
+          /^(?:VNĐ|VND|USD|đ|\d+[\s\w]*)$/i.test(textFound);
+
+        if (!isIgnored) {
+          violations.push({
+            line: lineIdx + 1,
+            ruleCode: 'RULE-I18N-001',
+            ruleName: 'Hardcoded Vietnamese UI Text in JSX',
+            category: RULE_CATEGORY.CLEAN_CODE,
+            severity: RULE_SEVERITY.MINOR,
+            matchedText: textFound,
+            codeSnippet: trimmed,
+            fix: 'Bọc chuỗi hiển thị bằng hàm dịch trans("...") hoặc khai báo trong src/locales/.',
+          });
+        }
+      }
+    }
+
+    // RULE-CLEAN-EXPRESSION: Dead Expression ({false && ...}) or Fake Metric Fallbacks (|| 7, ?? 4010)
+    if (activeRules.some((r) => r.code === 'RULE-CLEAN-EXPRESSION' || r.code === 'RULE-MOCK-001' || r.code === 'RULE-DEAD-001')) {
+      if (/\{\s*false\s*&&/.test(cleanLine)) {
         violations.push({
           line: lineIdx + 1,
-          ruleCode: 'RULE-I18N-001',
-          ruleName: 'Hardcoded Vietnamese UI Text in JSX',
+          ruleCode: 'RULE-CLEAN-EXPRESSION',
+          ruleName: 'Dead Expression in JSX ({false && ...})',
           category: RULE_CATEGORY.CLEAN_CODE,
           severity: RULE_SEVERITY.MINOR,
-          matchedText: textFound,
+          matchedText: '{false && ...}',
           codeSnippet: trimmed,
-          fix: 'Bọc chuỗi hiển thị bằng hàm dịch trans("...") hoặc khai báo trong src/locales/.',
+          fix: 'Sử dụng khối comment JSX {/* ... */} hoặc biến cờ điều kiện động.',
         });
+      }
+
+      const isFakeCountExempt =
+        isStore ||
+        cleanLine.includes('pageSize') ||
+        cleanLine.includes('perPage') ||
+        cleanLine.includes('per_page') ||
+        cleanLine.includes('page') ||
+        cleanLine.includes('limit') ||
+        cleanLine.includes('formPriority') ||
+        cleanLine.includes('priority') ||
+        cleanLine.includes('PORT') ||
+        cleanLine.includes('timeout') ||
+        cleanLine.includes('delay') ||
+        cleanLine.includes('duration') ||
+        cleanLine.includes('diameter') ||
+        cleanLine.includes('size') ||
+        cleanLine.includes('width') ||
+        cleanLine.includes('height') ||
+        cleanLine.includes('thickness') ||
+        cleanLine.includes('offset');
+
+      if (!isFakeCountExempt) {
+        const fakeMatch = cleanLine.match(/\|\|\s*\d{2,}\b|\?\?\s*\d{2,}\b|\|\|\s*7\b|\?\?\s*7\b/);
+        if (fakeMatch) {
+          violations.push({
+            line: lineIdx + 1,
+            ruleCode: 'RULE-CLEAN-EXPRESSION',
+            ruleName: 'Fake Fallback Metrics Count in JSX',
+            category: RULE_CATEGORY.CLEAN_CODE,
+            severity: RULE_SEVERITY.MINOR,
+            matchedText: fakeMatch[0].trim(),
+            codeSnippet: trimmed,
+            fix: 'Sử dụng giá trị mặc định thực tế 0 hoặc tính toán độ dài mảng chuẩn.',
+          });
+        }
       }
     }
 
@@ -742,7 +907,15 @@ export function lintFile(filePath, targetDir, activeRules = RULES) {
 
     // Quét rules có regex
     activeRules.forEach((rule) => {
-      if (rule.code === 'RULE-MOCK-002' || rule.code === 'RULE-ROUTE-005' || rule.code === 'RULE-UI-001') {
+      if (
+        rule.code === 'RULE-MOCK-002' ||
+        rule.code === 'RULE-ROUTE-005' ||
+        rule.code === 'RULE-UI-001' ||
+        rule.code === 'RULE-I18N-001' ||
+        rule.code === 'RULE-CLEAN-EXPRESSION' ||
+        rule.code === 'RULE-MOCK-001' ||
+        rule.code === 'RULE-DEAD-001'
+      ) {
         return;
       }
 
@@ -790,6 +963,13 @@ export function lintFile(filePath, targetDir, activeRules = RULES) {
       }
 
       if (rule.code === 'RULE-CONSOLE-001' && (relativePath.includes('logger') || relativePath.includes('test'))) {
+        return;
+      }
+
+      if (
+        rule.code === 'RULE-IMPORT-001' &&
+        (cleanLine.startsWith('import type') || cleanLine.startsWith('export type'))
+      ) {
         return;
       }
 
@@ -938,10 +1118,27 @@ export function lintProjectStructure(targetDir, activeRules = RULES) {
         const hasModernHierarchy = subItems.some((i) => ['pages', 'shared', 'tabs', 'steps', 'modals'].includes(i));
         if (hasModernHierarchy) {
           ['components', 'forms'].forEach((legacyFolder) => {
+            // Whitelist auth/forms: module auth gom 4 form đăng nhập/đăng ký là chuẩn nghiệp vụ
+            if (feature === 'auth' && legacyFolder === 'forms') return;
+
+            // Kiểm tra nếu file index.ts của feature này có export chính thức từ legacyFolder thì không coi là dead folder
+            const indexPath = path.join(featPath, 'index.ts');
+            if (fs.existsSync(indexPath)) {
+              try {
+                const indexContent = fs.readFileSync(indexPath, 'utf-8');
+                if (indexContent.includes(`'./${legacyFolder}'`) || indexContent.includes(`"./${legacyFolder}"`)) {
+                  return;
+                }
+              } catch {
+                // tiếp tục quét
+              }
+            }
+
             const legacyPath = path.join(featPath, legacyFolder);
             if (fs.existsSync(legacyPath) && fs.statSync(legacyPath).isDirectory()) {
               const filesInLegacy = fs.readdirSync(legacyPath);
-              const isEmpty = filesInLegacy.length === 0;
+              if (filesInLegacy.length === 0) return; // Bỏ qua thư mục rỗng (sẽ do clean-empty xử lý)
+
               structureResults.push({
                 filePath: legacyPath,
                 relativePath: `components/${feature}/${legacyFolder}`,
@@ -954,12 +1151,8 @@ export function lintProjectStructure(targetDir, activeRules = RULES) {
                     category: RULE_CATEGORY.FOLDER_COLOCATION,
                     severity: RULE_SEVERITY.MAJOR,
                     matchedText: `components/${feature}/${legacyFolder}`,
-                    codeSnippet: isEmpty
-                      ? `Thư mục phẳng cũ components/${feature}/${legacyFolder} (thư mục rỗng - cần xoá).`
-                      : `Thư mục phẳng cũ components/${feature}/${legacyFolder} vẫn tồn tại sau khi đã có cấu trúc pages/tabs/steps/modals.`,
-                    fix: isEmpty
-                      ? `Xoá bỏ thư mục rỗng ${legacyFolder}/.`
-                      : `Di chuyển toàn bộ component sang tabs/, steps/, modals/ hoặc pages/ và xóa bỏ thư mục ${legacyFolder}/.`,
+                    codeSnippet: `Thư mục phẳng cũ components/${feature}/${legacyFolder} vẫn tồn tại sau khi đã có cấu trúc pages/tabs/steps/modals.`,
+                    fix: `Di chuyển toàn bộ component sang tabs/, steps/, modals/ hoặc pages/ và xóa bỏ thư mục ${legacyFolder}/.`,
                   },
                 ],
               });
@@ -1007,14 +1200,15 @@ export function lintProjectStructure(targetDir, activeRules = RULES) {
     });
   }
 
-  // RULE-TYPE-003: Invalid Type File Naming in src/types/
+  // RULE-TYPE-003: Invalid Type File Naming in src/types/ (Hỗ trợ *.types.ts và *.dto.ts)
   if (activeRules.some((r) => r.code === 'RULE-TYPE-003')) {
     const typesDir = path.join(targetDir, 'types');
     if (fs.existsSync(typesDir) && fs.statSync(typesDir).isDirectory()) {
       const typeFiles = fs.readdirSync(typesDir);
       typeFiles.forEach((file) => {
         if (file === 'index.ts' || file === 'index.d.ts') return;
-        const isValid = /^[a-z][a-zA-Z0-9_]*\.types\.ts$/.test(file);
+        const isValid =
+          /^[a-z][a-zA-Z0-9_]*(\.[a-z0-9_]+)*\.(types|dto)\.ts$/.test(file);
         if (!isValid) {
           const fullPath = path.join(typesDir, file);
           structureResults.push({
@@ -1029,8 +1223,8 @@ export function lintProjectStructure(targetDir, activeRules = RULES) {
                 category: RULE_CATEGORY.TYPE_SAFETY,
                 severity: RULE_SEVERITY.MAJOR,
                 matchedText: file,
-                codeSnippet: `File types/${file} không tuân theo quy chuẩn đặt tên *.types.ts.`,
-                fix: `Đổi tên file thành ${file.replace(/\.ts$/, '')}.types.ts và dùng chữ cái thường đầu dòng.`,
+                codeSnippet: `File types/${file} không tuân theo quy chuẩn đặt tên *.types.ts hoặc *.dto.ts.`,
+                fix: `Đổi tên file thành ${file.replace(/(\.(types|dto))?\.ts$/, '')}.types.ts hoặc .dto.ts và dùng chữ thường đầu dòng.`,
               },
             ],
           });
@@ -1039,7 +1233,131 @@ export function lintProjectStructure(targetDir, activeRules = RULES) {
     }
   }
 
+  // RULE-I18N-002: Unused Locale Translation Key in src/locales/
+  if (activeRules.some((r) => r.code === 'RULE-I18N-002' || r.code === 'RULE-I18N-UNUSED')) {
+    const localesDir = path.join(targetDir, 'locales');
+    if (fs.existsSync(localesDir) && fs.statSync(localesDir).isDirectory()) {
+      const viCommonPath = path.join(localesDir, 'vi', 'common.ts');
+      if (fs.existsSync(viCommonPath)) {
+        try {
+          const viContent = fs.readFileSync(viCommonPath, 'utf-8');
+          const lines = viContent.split('\n');
+          const keysToCheck = [];
+
+          lines.forEach((lineText, idx) => {
+            const m = lineText.match(/^\s*(?:'([^']+)'|"([^"]+)"|([a-zA-Z0-9_-]+))\s*:/);
+            if (m) {
+              const k = m[1] || m[2] || m[3];
+              if (k && k !== 'common' && !k.startsWith('//')) {
+                keysToCheck.push({ key: k, line: idx + 1, rawLine: lineText.trim() });
+              }
+            }
+          });
+
+          if (keysToCheck.length > 0) {
+            const allFiles = collectFiles(null, targetDir).filter(
+              (f) => !f.includes('locales') && !f.includes('node_modules')
+            );
+            let combinedContent = '';
+            for (const f of allFiles) {
+              combinedContent += fs.readFileSync(f, 'utf-8') + '\n';
+            }
+
+            const deadKeyViolations = [];
+            keysToCheck.forEach(({ key, line, rawLine }) => {
+              if (!combinedContent.includes(key)) {
+                deadKeyViolations.push({
+                  line,
+                  ruleCode: 'RULE-I18N-002',
+                  ruleName: 'Unused Locale Translation Key in src/locales/',
+                  category: RULE_CATEGORY.CLEAN_CODE,
+                  severity: RULE_SEVERITY.MAJOR,
+                  matchedText: key,
+                  codeSnippet: rawLine,
+                  fix: `Xóa bỏ translation key '${key}' vì không có file nào trong src/ sử dụng.`,
+                });
+              }
+            });
+
+            if (deadKeyViolations.length > 0) {
+              structureResults.push({
+                filePath: viCommonPath,
+                relativePath: 'locales/vi/common.ts',
+                compliantCount: keysToCheck.length - deadKeyViolations.length,
+                violations: deadKeyViolations,
+              });
+            }
+          }
+        } catch {
+          // bỏ qua nếu lỗi đọc locales
+        }
+      }
+    }
+  }
+
   return structureResults;
+}
+
+/**
+ * Quét tìm toàn bộ thư mục rỗng trong thư mục targetDir
+ */
+export function findEmptyDirectories(dir, ignore = DEFAULT_IGNORE_PATTERNS, result = []) {
+  if (!fs.existsSync(dir)) return result;
+  const stat = fs.statSync(dir);
+  if (!stat.isDirectory()) return result;
+
+  const baseName = path.basename(dir);
+  if (ignore.includes(baseName)) return result;
+
+  const items = fs.readdirSync(dir);
+  if (items.length === 0) {
+    result.push(dir);
+    return result;
+  }
+
+  for (const item of items) {
+    const full = path.join(dir, item);
+    if (fs.statSync(full).isDirectory()) {
+      findEmptyDirectories(full, ignore, result);
+    }
+  }
+
+  // Nếu toàn bộ subdirs của dir đều nằm trong result (nghĩa là cả cây con rỗng)
+  const remaining = fs.readdirSync(dir);
+  if (
+    remaining.every((item) => {
+      const full = path.join(dir, item);
+      return fs.statSync(full).isDirectory() && result.includes(full);
+    })
+  ) {
+    if (!result.includes(dir)) {
+      result.push(dir);
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Xóa an toàn các thư mục rỗng
+ */
+export function cleanEmptyDirectories(emptyDirs) {
+  const deleted = [];
+  const sorted = [...emptyDirs].sort((a, b) => b.length - a.length);
+  for (const dir of sorted) {
+    try {
+      if (fs.existsSync(dir)) {
+        const items = fs.readdirSync(dir);
+        if (items.length === 0) {
+          fs.rmdirSync(dir);
+          deleted.push(dir);
+        }
+      }
+    } catch {
+      // bỏ qua nếu có lỗi quyền
+    }
+  }
+  return deleted;
 }
 
 export function runLintEngine(options = {}) {
@@ -1070,6 +1388,7 @@ export function runLintEngine(options = {}) {
     activeRules = RULES.filter(
       (r) =>
         r.code.toLowerCase() === cleanRule ||
+        (r.aliases && r.aliases.some((a) => a.toLowerCase() === cleanRule)) ||
         r.code.toLowerCase().includes(cleanRule) ||
         r.name.toLowerCase().includes(cleanRule)
     );
@@ -1079,15 +1398,18 @@ export function runLintEngine(options = {}) {
     const targetGroup = (options.group || options.preset).toLowerCase();
 
     if (targetGroup === 'i18n') {
-      activeRules = RULES.filter((r) => r.code === 'RULE-I18N-001');
+      activeRules = RULES.filter((r) => r.code === 'RULE-I18N-001' || r.code === 'RULE-I18N-002');
     } else if (targetGroup === 'radius') {
       activeRules = RULES.filter((r) => r.code === 'RULE-RADIUS-001');
-    } else if (targetGroup === 'mock' || targetGroup === 'mocks') {
+    } else if (targetGroup === 'mock' || targetGroup === 'mocks' || targetGroup === 'clean') {
       activeRules = RULES.filter(
         (r) =>
+          r.category === RULE_CATEGORY.CLEAN_CODE ||
           r.code.startsWith('RULE-MOCK') ||
           r.code.startsWith('RULE-DEAD') ||
-          r.code.startsWith('RULE-CONSOLE')
+          r.code.startsWith('RULE-CLEAN') ||
+          r.code.startsWith('RULE-CONSOLE') ||
+          r.code.startsWith('RULE-I18N')
       );
     } else if (targetGroup === 'color' || targetGroup === 'colors') {
       activeRules = RULES.filter((r) => r.category === RULE_CATEGORY.COLOR_TOKENS);
@@ -1143,6 +1465,25 @@ export function runLintEngine(options = {}) {
     }
   }
 
+  // 3. Quét thư mục rỗng và dọn dẹp nếu có cờ cleanEmpty / fixFolders
+  let emptyDirectories = [];
+  let deletedDirectories = [];
+  const shouldScanEmpty = !options.path || (fs.existsSync(options.path) && fs.statSync(options.path).isDirectory());
+  if (shouldScanEmpty) {
+    const targetScanDir = options.path
+      ? (path.isAbsolute(options.path) ? options.path : path.resolve(cwd, options.path))
+      : projectInfo.srcDir;
+    const actualScanDir =
+      fs.existsSync(path.join(targetScanDir, 'src')) && fs.statSync(path.join(targetScanDir, 'src')).isDirectory()
+        ? path.join(targetScanDir, 'src')
+        : targetScanDir;
+
+    emptyDirectories = findEmptyDirectories(actualScanDir);
+    if (options.cleanEmpty || options.fixFolders) {
+      deletedDirectories = cleanEmptyDirectories(emptyDirectories);
+    }
+  }
+
   const files = collectFiles(options.path, projectInfo.srcDir);
   const fileResults = files.map((f) => lintFile(f, projectInfo.srcDir, activeRules));
 
@@ -1171,6 +1512,8 @@ export function runLintEngine(options = {}) {
   return {
     projectInfo,
     results,
+    emptyDirectories,
+    deletedDirectories,
     summary: {
       totalFiles,
       cleanFiles,
@@ -1178,6 +1521,8 @@ export function runLintEngine(options = {}) {
       totalCompliant,
       totalViolations,
       complianceRate,
+      emptyDirectoriesCount: emptyDirectories.length,
+      deletedDirectoriesCount: deletedDirectories.length,
     },
   };
 }

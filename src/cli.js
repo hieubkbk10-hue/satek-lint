@@ -62,6 +62,9 @@ Sử dụng:
   --path=<folder|file>     Quét một thư mục hoặc tệp tin cụ thể (vd: --path=src/components/cart)
   -p <folder|file>         Dạng viết tắt của --path (vd: satek-lint -p components/cart)
 
+🧹 Dọn dẹp Thư mục (Folder Cleanup):
+  --clean-empty, --fix-folders  Tự động tìm và xóa sạch các thư mục rỗng / skeleton cũ trong src/
+
 ⚙️ Cấu hình & Định dạng xuất (CI / CD / AI Agents):
   --preset=<name>          Chọn bộ rule: all | ci | strict | migration | architecture | tokens | router | universal
   --ci, --strict           Chế độ chặn CI: Chỉ quét các lỗi kiến trúc bắt buộc (CRITICAL & MAJOR)
@@ -149,12 +152,15 @@ Sử dụng:
   const reportArg = args.find((a) => a.startsWith('--report='));
   const reportFile = reportArg ? reportArg.split('=')[1] : null;
 
+  const cleanEmpty = args.includes('--clean-empty') || args.includes('--fix-folders');
+
   // 6. Thực thi Linter Engine
-  const { results, summary, projectInfo } = runLintEngine({
+  const { results, summary, projectInfo, emptyDirectories, deletedDirectories } = runLintEngine({
     path: targetPath,
     rule: targetRule,
     group: targetGroup,
     preset,
+    cleanEmpty,
     cwd: process.cwd(),
   });
 
@@ -162,7 +168,7 @@ Sử dụng:
     fs.writeFileSync(
       reportFile,
       JSON.stringify(
-        { projectInfo, results, summary, timestamp: new Date().toISOString() },
+        { projectInfo, results, summary, emptyDirectories, deletedDirectories, timestamp: new Date().toISOString() },
         null,
         2
       ),
@@ -182,7 +188,7 @@ Sử dụng:
     process.exit(exitCode);
   } else {
     const isVerbose = args.includes('--verbose') || args.includes('-v') || args.includes('--all');
-    const exitCode = renderScanResults(results, summary, projectInfo, format, isVerbose);
+    const exitCode = renderScanResults(results, summary, projectInfo, format, isVerbose, emptyDirectories, deletedDirectories);
     process.exit(exitCode);
   }
 }

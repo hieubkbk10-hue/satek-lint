@@ -61,6 +61,9 @@ satek-lint --group=types      # (hoặc viết tắt: satek-lint --types)
 # Quét duy nhất lỗi RTK Query mutation thiếu invalidatesTags:
 satek-lint --rule=RULE-RTK-001
 
+# Quét phát hiện translation keys thừa/không dùng trong src/locales/ (Dead keys):
+satek-lint --rule=RULE-I18N-002
+
 # Quét duy nhất lỗi bo góc:
 satek-lint --rule=RULE-RADIUS-001
 
@@ -79,9 +82,18 @@ satek-lint --path=src/components/ai --i18n
 satek-lint --path=src/store/api --rule=RULE-RTK-001
 ```
 
-### E. Tra Cứu Danh Mục Quy Chuẩn (`--rules`)
+### E. Dọn Dẹp Thư Mục Rỗng & Skeleton Cũ (`--clean-empty`)
 ```powershell
-# In toàn bộ danh mục 41 quy tắc tiêu chuẩn:
+# Tự động quét và xóa sạch tất cả các thư mục rỗng trong src/:
+satek-lint --clean-empty
+
+# Hoặc áp dụng riêng cho một module:
+satek-lint --path=src/components/hosting --clean-empty
+```
+
+### F. Tra Cứu Danh Mục Quy Chuẩn (`--rules`)
+```powershell
+# In toàn bộ danh mục 39 quy tắc tiêu chuẩn:
 satek-lint --rules
 # hoặc:
 fe-lint -l
@@ -92,7 +104,7 @@ satek-lint --rules=RULE-UI-001
 satek-lint -r i18n
 ```
 
-### F. Chế Độ Bàn Phím Tương Tác (Interactive Terminal UI Dashboard)
+### G. Chế Độ Bàn Phím Tương Tác (Interactive Terminal UI Dashboard)
 ```powershell
 # Mở giao diện Dashboard Master-Detail tương tác bằng phím:
 satek-lint --tui
@@ -126,16 +138,21 @@ CLI được thiết kế chuẩn mực phục vụ tự động hóa và tích 
 
 ---
 
-## 📑 4. TỔNG QUAN 8 NHÓM QUY TẮC KIẾN TRÚC TIÊU CHUẨN
+## 📑 4. TỔNG QUAN 9 NHÓM QUY TẮC KIẾN TRÚC TIÊU CHUẨN (39 RULES)
 
-1. **Zero Arbitrary Colors & Tokens (`RULE-COLOR-*`):** Cấm 100% việc viết mã màu tùy tiện `text-[#...]`, `bg-[#...]`. Bắt buộc dùng Design Tokens từ `@theme`.
+1. **Zero Arbitrary Colors & Tokens (`RULE-COLOR-*`, `RULE-ZINDEX-*`, `RULE-THEME-*`):** Cấm 100% việc viết mã màu tùy tiện `text-[#...]`, `bg-[#...]`. Bắt buộc dùng Design Tokens từ `@theme`. Whitelist chuẩn z-index `z-[10050]` cho lịch/portal trong modal.
 2. **Semantic Border Radius (`RULE-RADIUS-001`):** Sử dụng 4 tokens chuẩn (`rounded-card`, `rounded-field`, `rounded-tile`, `rounded-pill`/`rounded-full`). Cho phép `// -- CUSTOM_RADIUS` cho các góc bo vi mô lồng nhau đặc thù.
-3. **HTML & Table Accessibility (`RULE-UI-001`, `RULE-HTML-*`):** Cấm dùng `display: contents` trên cấu trúc Bảng (`<table>`, `<Table>`, `<TableRow>`...) và Data Grid phức tạp để bảo vệ Accessibility Tree.
-4. **Thin Route & TanStack Router (`RULE-ROUTE-*`, `RULE-PARAM-*`):** File trong `routes/` chỉ làm nhiệm vụ parse query params và delegate cho Page component (file < 25 dòng). Dynamic param chuẩn hóa là `$id.tsx`.
-5. **Barrel Export & Module Hygiene (`RULE-BARREL-*`, `RULE-IMPORT-*`):** Bắt buộc import qua barrel export `@/components/{module}`, cấm import ngược tầng kiến trúc và cấm import từ `./index` gây vòng lặp.
-6. **RTK Query Tags Standard (`RULE-RTK-*`):** Mọi mutation phải có `invalidatesTags` và query phải có `providesTags` để tự động đồng bộ cache.
-7. **Folder Co-location (`RULE-FOLDER-*`):** Co-locate component phục vụ 1 tab/step vào đúng thư mục tương ứng, xóa bỏ thư mục phẳng legacy cũ.
-8. **TypeScript Strict & Clean Code (`RULE-TYPE-*`, `RULE-MOCK-*`, `RULE-I18N-*`):** Cấm `any`, cấm import mock data trong code production, cấm fake count `|| 7`, tách chuỗi Tiếng Việt vào file ngôn ngữ.
+3. **HTML & Accessibility Standards (`RULE-UI-001`, `RULE-HTML-NESTING`):** Cấm dùng `display: contents` trên cấu trúc Bảng (`<table>`, `<Table>`, `<TableRow>`...) và Data Grid; cấm lồng thẻ interactive button-in-button hoặc lồng header cell trái chuẩn HTML.
+4. **Thin Route & TanStack Router (`RULE-ROUTE-THIN`, `RULE-ROUTE-*`, `RULE-PARAM-*`):** File trong `routes/` chỉ làm nhiệm vụ parse query params và delegate cho Page component (file < 25 dòng, không chứa logic JSX phức tạp hay useState/useMutation). Dynamic param chuẩn hóa là `$id.tsx`.
+5. **Barrel Export & Module Hygiene (`RULE-BARREL-*`, `RULE-IMPORT-*`):** Bắt buộc import qua barrel export `@/components/{module}`, cấm import ngược tầng kiến trúc và cấm import từ chính `./index` gây vòng lặp.
+6. **RTK Query Cache & Tag Naming (`RULE-RTK-001`, `RULE-RTK-002`, `RULE-RTK-TAG-NAMING`):** Mọi mutation phải có `invalidatesTags`, query phải có `providesTags`, và tên resource tags bắt buộc tuân thủ chuẩn PascalCase SSOT.
+7. **Folder Co-location & Cleanup (`RULE-FOLDER-*`, `--clean-empty`):** Co-locate component phục vụ 1 tab/step vào đúng thư mục tương ứng. Hỗ trợ tự động xóa bỏ thư mục rỗng / skeleton cũ. Whitelist thư mục `auth/forms` và re-export hợp lệ.
+8. **TypeScript Strict & DTO Architecture (`RULE-TYPE-*`):** Cấm `any`, chuẩn hóa naming `*.types.ts` và cho phép `*.dto.ts` phản ánh mô hình DTO độc lập phù hợp kiến trúc backend Porto/Apiato.
+9. **Dead Code & Smart i18n Hygiene (`RULE-MOCK-*`, `RULE-CLEAN-EXPRESSION`, `RULE-EFFECT-GUARD`, `RULE-I18N-001`, `RULE-I18N-002`):**
+   - **Smart Context-Aware i18n (`RULE-I18N-001`):** Chỉ quét chuỗi Tiếng Việt hardcoded trên các component có sử dụng i18n hoặc luồng thanh toán/xác thực công khai, loại bỏ 80% nhiễu false positive.
+   - **Dead Translation Key Audit (`RULE-I18N-002`):** Tự động phát hiện các key dịch trong `src/locales/` mà codebase không hề sử dụng ("không dùng thì không dịch").
+   - **Effect Guard (`RULE-EFFECT-GUARD`):** Bắt buộc bảo vệ `setState` trong `useEffect` tránh vòng lặp re-render vô tận.
+   - **Clean Expression (`RULE-CLEAN-EXPRESSION`):** Cấm biểu thức chết `{false && ...}` và fallback số liệu giả `|| 7`, `?? 4010`. Cấm import mock trong production.
 
 ---
 

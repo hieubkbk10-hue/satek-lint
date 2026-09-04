@@ -75,13 +75,23 @@ export function renderRuleCatalog(format = 'text', filter = null) {
   return 0;
 }
 
-export function renderScanResults(results, summary, projectInfo = {}, format = 'text', isVerbose = false) {
+export function renderScanResults(
+  results,
+  summary,
+  projectInfo = {},
+  format = 'text',
+  isVerbose = false,
+  emptyDirectories = [],
+  deletedDirectories = []
+) {
   if (format === 'json') {
     console.log(
       JSON.stringify(
         {
           projectInfo,
           summary,
+          emptyDirectories,
+          deletedDirectories,
           results,
           timestamp: new Date().toISOString(),
         },
@@ -101,7 +111,21 @@ export function renderScanResults(results, summary, projectInfo = {}, format = '
   }
 
   if (results.length === 0) {
-    console.log(`${COLORS.green}✔ Không tìm thấy tệp tin nào để quét.${COLORS.reset}\n`);
+    if (deletedDirectories && deletedDirectories.length > 0) {
+      console.log(`🧹 ${COLORS.green}${COLORS.bright}ĐÃ TỰ ĐỘNG DỌN DẸP ${deletedDirectories.length} THƯ MỤC RỖNG / SAI KIẾN TRÚC:${COLORS.reset}`);
+      deletedDirectories.forEach((d) => console.log(`   ✔ Đã xóa: ${COLORS.dim}${d}${COLORS.reset}`));
+      console.log('');
+    } else if (emptyDirectories && emptyDirectories.length > 0) {
+      console.log(`📁 ${COLORS.yellow}${COLORS.bright}PHÁT HIỆN ${emptyDirectories.length} THƯ MỤC RỖNG / SKELETON CŨ TRONG DỰ ÁN:${COLORS.reset}`);
+      emptyDirectories.forEach((d) => console.log(`   ℹ ${COLORS.dim}${d}${COLORS.reset}`));
+      const cleanCmd = projectInfo.projectRoot && projectInfo.projectRoot !== process.cwd()
+        ? `satek-lint --path="${projectInfo.projectRoot}" --clean-empty`
+        : `satek-lint --clean-empty`;
+      console.log(`\n   👉 ${COLORS.bright}${COLORS.white}COPY & PASTE LỆNH DƯỚI ĐÂY ĐỂ XÓA TỰ ĐỘNG:${COLORS.reset}`);
+      console.log(`      ${COLORS.green}${COLORS.bright}${cleanCmd}${COLORS.reset}\n`);
+    } else {
+      console.log(`${COLORS.green}✔ Không tìm thấy tệp tin nào để quét.${COLORS.reset}\n`);
+    }
     return 0;
   }
 
@@ -161,6 +185,20 @@ export function renderScanResults(results, summary, projectInfo = {}, format = '
     .sort((a, b) => b.count - a.count)
     .slice(0, 5);
 
+  if (deletedDirectories && deletedDirectories.length > 0) {
+    console.log(`\n🧹 ${COLORS.green}${COLORS.bright}ĐÃ TỰ ĐỘNG DỌN DẸP ${deletedDirectories.length} THƯ MỤC RỖNG / SAI KIẾN TRÚC:${COLORS.reset}`);
+    deletedDirectories.forEach((d) => console.log(`   ✔ Đã xóa: ${COLORS.dim}${d}${COLORS.reset}`));
+    console.log('');
+  } else if (emptyDirectories && emptyDirectories.length > 0) {
+    console.log(`\n📁 ${COLORS.yellow}${COLORS.bright}PHÁT HIỆN ${emptyDirectories.length} THƯ MỤC RỖNG / SKELETON CŨ TRONG DỰ ÁN:${COLORS.reset}`);
+    emptyDirectories.forEach((d) => console.log(`   ℹ ${COLORS.dim}${d}${COLORS.reset}`));
+    const cleanCmd = projectInfo.projectRoot && projectInfo.projectRoot !== process.cwd()
+      ? `satek-lint --path="${projectInfo.projectRoot}" --clean-empty`
+      : `satek-lint --clean-empty`;
+    console.log(`\n   👉 ${COLORS.bright}${COLORS.white}COPY & PASTE LỆNH DƯỚI ĐÂY ĐỂ XÓA TỰ ĐỘNG:${COLORS.reset}`);
+    console.log(`      ${COLORS.green}${COLORS.bright}${cleanCmd}${COLORS.reset}\n`);
+  }
+
   console.log(`========================================================================================`);
   console.log(`📊 TỔNG KẾT MỨC ĐỘ TUÂN THỦ (AUDIT SUMMARY):`);
   console.log(`========================================================================================`);
@@ -189,6 +227,12 @@ export function renderScanResults(results, summary, projectInfo = {}, format = '
   console.log(`   • Quét riêng Kiến trúc/RTK: ${COLORS.cyan}satek-lint --group=arch${COLORS.reset}   (hoặc: ${COLORS.cyan}satek-lint --arch${COLORS.reset})`);
   console.log(`   • Quét riêng Mock Data:    ${COLORS.cyan}satek-lint --group=mock${COLORS.reset}   (hoặc: ${COLORS.cyan}satek-lint --mock${COLORS.reset})`);
   console.log(`   • Quét riêng Màu sắc SSOT:  ${COLORS.cyan}satek-lint --group=color${COLORS.reset}  (hoặc: ${COLORS.cyan}satek-lint --color${COLORS.reset})`);
+  if (emptyDirectories && emptyDirectories.length > 0) {
+    const cleanCmd = projectInfo.projectRoot && projectInfo.projectRoot !== process.cwd()
+      ? `satek-lint --path="${projectInfo.projectRoot}" --clean-empty`
+      : `satek-lint --clean-empty`;
+    console.log(`   • Dọn ${emptyDirectories.length} thư mục rỗng:   ${COLORS.green}${COLORS.bright}${cleanCmd}${COLORS.reset}`);
+  }
   console.log(`   • Quét riêng 1 rule bất kỳ: ${COLORS.cyan}satek-lint --rule=RULE-RTK-001${COLORS.reset}`);
   console.log(`   • Mở Dashboard tương tác:   ${COLORS.cyan}satek-lint --tui${COLORS.reset}`);
   console.log(`========================================================================================\n`);
