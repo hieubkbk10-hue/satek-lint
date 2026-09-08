@@ -1,7 +1,7 @@
 {
   "name": "satek-linter-cli",
-  "version": "2.0.0",
-  "description": "Universal React Frontend Architecture & Design Token Linter",
+  "version": "3.0.0",
+  "description": "Satek Linter v3 - Universal React Frontend Architecture & AST Advisory Engine",
   "type": "module",
   "bin": {
     "satek-lint": "bin/satek-lint.js",
@@ -10,7 +10,15 @@
   "scripts": {
     "check": "node bin/satek-lint.js",
     "rules": "node bin/satek-lint.js --rules",
-    "list-rules": "node bin/satek-lint.js --rules"
+    "list-rules": "node bin/satek-lint.js --rules",
+    "test": "node --test test/**/*.test.js",
+    "test:unit": "node --test test/unit/**/*.test.js",
+    "test:rules": "node --test test/rules/**/*.test.js",
+    "test:integration": "node --test test/integration/**/*.test.js"
+  },
+  "dependencies": {
+    "postcss": "^8.4.38",
+    "typescript": "^5.4.0"
   },
   "engines": {
     "node": ">=18"

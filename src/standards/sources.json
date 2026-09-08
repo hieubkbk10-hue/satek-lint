@@ -1,0 +1,40 @@
+{
+  "sources": [
+    {
+      "id": "STD",
+      "name": "General Architecture & Clean Rules",
+      "relativePath": ".agents/rules/rules.md",
+      "sha256": "63A4CB98F1BC"
+    },
+    {
+      "id": "API",
+      "name": "RTK Query & API Standards",
+      "relativePath": ".agents/rules/api.md",
+      "sha256": "D8B372CFE797"
+    },
+    {
+      "id": "LIST",
+      "name": "List Page & Table Patterns",
+      "relativePath": ".agents/rules/list_page_table_rules.md",
+      "sha256": "562B8710A7A7"
+    },
+    {
+      "id": "CODE",
+      "name": "Company Code Quality & Git Guidelines",
+      "relativePath": ".agents/rules/quy_chuan_code_cong_ty.md",
+      "sha256": "B03F94999E04"
+    },
+    {
+      "id": "QUERY",
+      "name": "Query Guide & Grammar",
+      "relativePath": ".agents/guides/query_guides.md",
+      "sha256": "02C35E8A1864"
+    },
+    {
+      "id": "FEATURE",
+      "name": "Feature Development SOP & Structure",
+      "relativePath": ".agents/guides/feature_development_guide.md",
+      "sha256": "4A9FBE82CF437"
+    }
+  ]
+}

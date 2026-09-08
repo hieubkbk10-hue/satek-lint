@@ -1,0 +1,1 @@
+export function Test() { return <div>{false && <span>Hidden</span>}</div>; }

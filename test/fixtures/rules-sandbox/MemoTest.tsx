@@ -1,0 +1,1 @@
+export function Test(data: any) { const items = useMemo(() => data?.data ?? [], [data]); return null; }

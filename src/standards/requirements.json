@@ -1,0 +1,338 @@
+{
+  "requirements": [
+    {
+      "id": "ARCH.IMPORT.UPWARD",
+      "source": "STD",
+      "section": "3.2",
+      "requirement": "Cấm import relative đi lên từ 2 cấp trở lên (../../)",
+      "ruleCodes": ["RULE-IMPORT-004"],
+      "automation": "ast",
+      "limitations": []
+    },
+    {
+      "id": "ARCH.BARREL.SURFACE",
+      "source": "STD",
+      "section": "2-3",
+      "requirement": "Feature domain phải có đầy đủ root index.ts, pages/index.ts, shared/index.ts và export symbol thực",
+      "ruleCodes": ["RULE-BARREL-001"],
+      "automation": "graph",
+      "limitations": []
+    },
+    {
+      "id": "ARCH.BARREL.CONSUMER",
+      "source": "STD",
+      "section": "2, 3.3",
+      "requirement": "Consumer bên ngoài feature phải import qua public barrel root, cấm deep import",
+      "ruleCodes": ["RULE-BARREL-002", "RULE-TYPE-002", "RULE-API-002"],
+      "automation": "graph",
+      "limitations": []
+    },
+    {
+      "id": "ARCH.BARREL.PUBLIC",
+      "source": "STD",
+      "section": "3",
+      "requirement": "Public barrels bắt buộc cho hooks, constants, utils, helpers, slices",
+      "ruleCodes": ["RULE-BARREL-003"],
+      "automation": "graph",
+      "limitations": []
+    },
+    {
+      "id": "ARCH.IMPORT.SELF",
+      "source": "STD",
+      "section": "3.3",
+      "requirement": "Cấm self-barrel import dẫn tới circular import",
+      "ruleCodes": ["RULE-IMPORT-001"],
+      "automation": "graph",
+      "limitations": []
+    },
+    {
+      "id": "ARCH.FOLDER.COMMON",
+      "source": "STD",
+      "section": "3.1",
+      "requirement": "Common kit phân theo 7 nhóm chuẩn: cards, feedback, forms, navigation, system, table, ui",
+      "ruleCodes": ["RULE-FOLDER-004"],
+      "automation": "graph",
+      "limitations": []
+    },
+    {
+      "id": "ARCH.COLOCATION.COMPONENT",
+      "source": "STD",
+      "section": "3.1",
+      "requirement": "Component chỉ dùng 1 nơi phải đặt co-locate, không đẩy vào shared/",
+      "ruleCodes": ["RULE-FOLDER-002"],
+      "automation": "heuristic",
+      "limitations": ["Đếm consumers thực tế từ import graph"]
+    },
+    {
+      "id": "FEATURE.WORKFLOW.STEPS",
+      "source": "FEATURE",
+      "section": "1.2",
+      "requirement": "Workflow Step component phải nằm trong steps/ hoặc *-steps/",
+      "ruleCodes": ["RULE-WORKFLOW-001"],
+      "automation": "graph",
+      "limitations": []
+    },
+    {
+      "id": "FEATURE.NAMING.ROLE",
+      "source": "FEATURE",
+      "section": "1-3",
+      "requirement": "Component đặt tên PascalCase, vai trò Page/Tab/Step có hậu tố tương ứng",
+      "ruleCodes": ["RULE-NAMING-001"],
+      "automation": "ast",
+      "limitations": []
+    },
+    {
+      "id": "API.BASE.INJECT",
+      "source": "API",
+      "section": "2.1",
+      "requirement": "Cấm fetch/axios trực tiếp ngoài baseApi, API slice phải injectEndpoints",
+      "ruleCodes": ["RULE-API-001"],
+      "automation": "ast",
+      "limitations": []
+    },
+    {
+      "id": "API.QUERY.ISOLATE",
+      "source": "API",
+      "section": "3.1",
+      "requirement": "Cô lập status/search/UI-only fields trước request, cấm raw ...params",
+      "ruleCodes": ["RULE-QUERY-001"],
+      "automation": "ast",
+      "limitations": []
+    },
+    {
+      "id": "API.QUERY.SERIALIZABLE",
+      "source": "API",
+      "section": "3.2",
+      "requirement": "Params query phải serializable, cấm any, Record string/number chuẩn, skipCache boolean",
+      "ruleCodes": ["RULE-QUERY-002"],
+      "automation": "ast",
+      "limitations": []
+    },
+    {
+      "id": "API.QUERY.PAGINATION",
+      "source": "API",
+      "section": "3.3",
+      "requirement": "Endpoint phân trang phải có page default 1, limit DEFAULT_LIMIT từ constants",
+      "ruleCodes": ["RULE-QUERY-003"],
+      "automation": "ast",
+      "limitations": []
+    },
+    {
+      "id": "API.QUERY.STATUS_ALL",
+      "source": "API",
+      "section": "3.4",
+      "requirement": "Không gửi status 'all' lên backend",
+      "ruleCodes": ["RULE-QUERY-004"],
+      "automation": "ast",
+      "limitations": []
+    },
+    {
+      "id": "API.SEARCH.TRIM",
+      "source": "API",
+      "section": "3.5",
+      "requirement": "Trim search và bỏ chuỗi rỗng trước request, prefix default field nếu không có colon",
+      "ruleCodes": ["RULE-QUERY-005"],
+      "automation": "ast",
+      "limitations": ["Không suy đoán behavior của external helper"]
+    },
+    {
+      "id": "QUERY.GRAMMAR.OPERATORS",
+      "source": "QUERY",
+      "section": "2.2-2.5",
+      "requirement": "sortedBy asc/desc, isRandom=1, searchFields đúng 10 toán tử, delimiter ; và :",
+      "ruleCodes": ["RULE-QUERY-006"],
+      "automation": "ast",
+      "limitations": []
+    },
+    {
+      "id": "QUERY.GRAMMAR.DATE_NULL_RELATION",
+      "source": "QUERY",
+      "section": "2.6-2.8",
+      "requirement": "searchDate YYYY-MM-DD, searchNull/searchHas syntax chuẩn, searchInclude",
+      "ruleCodes": ["RULE-QUERY-007"],
+      "automation": "ast",
+      "limitations": []
+    },
+    {
+      "id": "QUERY.GRAMMAR.DELIMITERS",
+      "source": "QUERY",
+      "section": "2.9-2.11",
+      "requirement": "include ngăn comma, filter ngăn semicolon, skipCache boolean",
+      "ruleCodes": ["RULE-QUERY-008"],
+      "automation": "ast",
+      "limitations": []
+    },
+    {
+      "id": "QUERY.GRAMMAR.ADVANCED",
+      "source": "QUERY",
+      "section": "4-5",
+      "requirement": "Advanced filter ghép đúng tham số, tránh duplicate prefix và sai delimiter",
+      "ruleCodes": ["RULE-QUERY-009"],
+      "automation": "heuristic",
+      "limitations": ["Chỉ kiểm tra pattern biểu thức biết chắc"]
+    },
+    {
+      "id": "API.RTK.TAG_INTEGRITY",
+      "source": "API",
+      "section": "4.1-4.2",
+      "requirement": "ProvidesTags cho query, invalidatesTags cho mutation, cấm String(id), invalidate LIST tag",
+      "ruleCodes": ["RULE-RTK-001", "RULE-RTK-002", "RULE-RTK-003", "RULE-RTK-TAG-NAMING"],
+      "automation": "ast",
+      "limitations": []
+    },
+    {
+      "id": "API.RESPONSE.TRANSFORM",
+      "source": "API",
+      "section": "5",
+      "requirement": "Khuyến nghị bỏ transformResponse unwrap 1-1; transform phức tạp phải explicit types",
+      "ruleCodes": ["RULE-RESPONSE-001"],
+      "automation": "heuristic",
+      "limitations": []
+    },
+    {
+      "id": "API.MEMO.READONLY",
+      "source": "API",
+      "section": "6.1",
+      "requirement": "Cấm useMemo bọc property read thuần túy từ query data",
+      "ruleCodes": ["RULE-MEMO-001"],
+      "automation": "ast",
+      "limitations": []
+    },
+    {
+      "id": "API.LOADING.FETCHING",
+      "source": "API",
+      "section": "6.2",
+      "requirement": "Requery Table nên dùng isFetching thay vì isLoading",
+      "ruleCodes": ["RULE-LOADING-001"],
+      "automation": "heuristic",
+      "limitations": []
+    },
+    {
+      "id": "API.NULL.GUARD",
+      "source": "API",
+      "section": "6.3",
+      "requirement": "Unsafe property access trên query data có thể undefined",
+      "ruleCodes": ["RULE-NULL-001"],
+      "automation": "ast",
+      "limitations": []
+    },
+    {
+      "id": "LIST.FILTER.STATE",
+      "source": "LIST",
+      "section": "1.1",
+      "requirement": "Một object state filters duy nhất trong ListPage",
+      "ruleCodes": ["RULE-LIST-001"],
+      "automation": "ast",
+      "limitations": []
+    },
+    {
+      "id": "LIST.FILTER.UPDATE",
+      "source": "LIST",
+      "section": "1.2",
+      "requirement": "Một updateFilter useCallback xử lý reset page khi search/filter đổi",
+      "ruleCodes": ["RULE-LIST-002"],
+      "automation": "ast",
+      "limitations": []
+    },
+    {
+      "id": "LIST.SEARCH.DEBOUNCE",
+      "source": "LIST",
+      "section": "1.3",
+      "requirement": "useDebounce(filters.search, 300) trước khi truyền vào query",
+      "ruleCodes": ["RULE-LIST-003"],
+      "automation": "ast",
+      "limitations": []
+    },
+    {
+      "id": "LIST.PAGINATION.CONSTANTS",
+      "source": "LIST",
+      "section": "2.1",
+      "requirement": "DEFAULT_LIMIT và LIMIT_OPTIONS import từ constants, cấm inline số magic",
+      "ruleCodes": ["RULE-LIST-004"],
+      "automation": "ast",
+      "limitations": []
+    },
+    {
+      "id": "LIST.PAGINATION.MEMO",
+      "source": "LIST",
+      "section": "2.2",
+      "requirement": "paginationConfig bọc useMemo, total<=0 trả false",
+      "ruleCodes": ["RULE-LIST-005"],
+      "automation": "ast",
+      "limitations": []
+    },
+    {
+      "id": "LIST.METADATA.DECLARATION",
+      "source": "LIST",
+      "section": "3.1-3.2",
+      "requirement": "Columns/tabs metadata khai báo ngoài component, label bọc useMemo có deps trans",
+      "ruleCodes": ["RULE-LIST-006"],
+      "automation": "ast",
+      "limitations": []
+    },
+    {
+      "id": "CODE.REPO.FORMAT",
+      "source": "CODE",
+      "section": "1.3",
+      "requirement": "Prettier tabWidth 2, EditorConfig nhất quán",
+      "ruleCodes": ["RULE-REPO-001"],
+      "automation": "repo",
+      "limitations": []
+    },
+    {
+      "id": "CODE.REPO.TS_STRICT",
+      "source": "CODE",
+      "section": "1.1",
+      "requirement": "TypeScript strict mode và scripts build/lint kiểm tra",
+      "ruleCodes": ["RULE-REPO-002"],
+      "automation": "repo",
+      "limitations": []
+    },
+    {
+      "id": "CODE.REPO.BRANCH",
+      "source": "CODE",
+      "section": "8.1",
+      "requirement": "Branch naming dev_<name>_<feature>",
+      "ruleCodes": ["RULE-REPO-003"],
+      "automation": "repo",
+      "limitations": ["Chỉ kiểm tra HEAD branch cục bộ"]
+    },
+    {
+      "id": "CODE.REPO.COMMITS",
+      "source": "CODE",
+      "section": "8.2",
+      "requirement": "Conventional Commits đúng 8 types",
+      "ruleCodes": ["RULE-REPO-004"],
+      "automation": "repo",
+      "limitations": ["Chỉ kiểm tra commits cục bộ HEAD hoặc base..HEAD"]
+    },
+    {
+      "id": "CODE.REPO.HUSKY",
+      "source": "CODE",
+      "section": "8.3",
+      "requirement": "Husky hooks wiring: pre-commit, commit-msg",
+      "ruleCodes": ["RULE-REPO-005"],
+      "automation": "repo",
+      "limitations": []
+    },
+    {
+      "id": "CODE.STANDARDS.DRIFT",
+      "source": "STD",
+      "section": "all",
+      "requirement": "Phát hiện thay đổi trong tài liệu quy chuẩn chuẩn hóa",
+      "ruleCodes": ["RULE-STANDARDS-001"],
+      "automation": "repo",
+      "limitations": []
+    }
+  ],
+  "manualChecklist": [
+    { "id": "MANUAL-PR-001", "description": "PR target develop/staging, title conventional, description template" },
+    { "id": "MANUAL-PR-002", "description": "PR có ít nhất 1 approval độc lập từ đồng nghiệp" },
+    { "id": "MANUAL-PR-003", "description": "Squash and merge, xóa remote branch sau khi hoàn tất" },
+    { "id": "MANUAL-GATE-001", "description": "Build, lint, typecheck đã pass trên CI trước khi merge" },
+    { "id": "MANUAL-API-001", "description": "Xác nhận endpoint/fields thực tế tồn tại trên backend" },
+    { "id": "MANUAL-SEMANTIC-001", "description": "Tên biến, ngữ nghĩa domain và logic nghiệp vụ chính xác" },
+    { "id": "MANUAL-RUNTIME-001", "description": "Xác minh realtime queue, focus recovery và stacking khi chạy" },
+    { "id": "MANUAL-FEATURE-001", "description": "Thực hiện đúng 6 bước SOP quy trình phát triển tính năng" }
+  ]
+}

@@ -1,0 +1,1 @@
+export const params = { searchFields: 'name:contains;age:>=' };

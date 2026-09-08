@@ -1,0 +1,1 @@
+export interface ApiDomain { id: string; }
