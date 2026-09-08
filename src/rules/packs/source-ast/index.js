@@ -52,15 +52,28 @@ export function runSourceAstPack(context, filePath) {
 
         // RULE-MOCK-002: Production Code Importing From Mock Modules
         if (!isMockFile && (spec.includes('@/mocks') || spec.includes('/mocks/') || spec.startsWith('../mocks'))) {
-          report(
-            'RULE-MOCK-002',
-            stmt,
-            `Mã nguồn production không được import dữ liệu mock từ "${spec}".`,
-            'Sử dụng RTK Query hooks hoặc API service thực tế thay cho mock module.',
-            spec,
-            PRIORITIES.HIGH,
-            'production-mock-import'
-          );
+          const isApiSlice = normPath.includes('/store/api/');
+          if (isApiSlice) {
+            report(
+              'RULE-MOCK-002',
+              stmt,
+              `Endpoint API slice "${fileName}" đang sử dụng dữ liệu mock từ "${spec}". (Nợ kỹ thuật: Chờ API backend thật).`,
+              'Chuyển đổi queryFn bọc mock thành query: (params) => ({ url: "...", params }) khi backend deploy API.',
+              spec,
+              PRIORITIES.MEDIUM,
+              'api-slice-mock-adapter'
+            );
+          } else {
+            report(
+              'RULE-MOCK-002',
+              stmt,
+              `Mã nguồn UI/State production không được import dữ liệu mock từ "${spec}". Có nguy cơ gây sai lệch dữ liệu người dùng và luồng thanh toán.`,
+              'Sử dụng RTK Query hooks hoặc API service thực tế thay cho mock module.',
+              spec,
+              PRIORITIES.HIGH,
+              'production-mock-import'
+            );
+          }
         }
       }
     }
@@ -710,7 +723,7 @@ export function runSourceAstPack(context, filePath) {
           confidence: 'proven',
           location: { path: filePath, line: line + 1, column: character + 1 },
           message: 'Table truyền prop loading={isLoading}. Nên dùng loading={isFetching || isLoading} để hiển thị trạng thái khi chuyển trang/lọc.',
-          suggestion: 'Đổi thành: loading={isFetching || isLoading}',
+          suggestion: 'Khai báo thêm isFetching từ hook (const { isLoading, isFetching } = use...Query(...)) và truyền loading={isFetching || isLoading} vào Table.',
           evidence: tlMatch[0],
         });
       }

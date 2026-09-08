@@ -238,14 +238,15 @@ export function runModuleGraphPack(context) {
       const spec = imp.specifier;
       const line = imp.node ? context.parser.getNodeLocation(imp.node, context.parser.getSourceFile(filePath)).line : 1;
 
-      // 1. RULE-IMPORT-001: Self circular barrel import
-      if (spec === '.' || spec === './' || spec === './index' || spec === './index.ts') {
+      // 1. RULE-IMPORT-001: Self circular barrel import (runtime only, skip type-only imports)
+      const isTypeOnly = imp.isTypeOnly || (imp.importedSymbols && imp.importedSymbols.length > 0 && imp.importedSymbols.every((s) => s.isTypeOnly));
+      if ((spec === '.' || spec === './' || spec === './index' || spec === './index.ts') && !isTypeOnly) {
         report(
           'RULE-IMPORT-001',
           filePath,
           line,
           1,
-          `Phát hiện self-barrel import "${spec}". Tệp tin không được import từ chính barrel cùng thư mục của mình.`,
+          `Phát hiện self-barrel import "${spec}". Tệp tin không được import runtime từ chính barrel cùng thư mục của mình (nguy cơ Circular Dependency).`,
           'Import trực tiếp tệp tin cụ thể hoặc tách code chung.',
           spec,
           PRIORITIES.HIGH,
