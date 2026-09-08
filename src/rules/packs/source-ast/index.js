@@ -417,21 +417,55 @@ export function runSourceAstPack(context, filePath) {
       // 9. RULE-EFFECT-GUARD: Missing state guard in useEffect
       if (ts.isIdentifier(node.expression) && node.expression.text === 'useEffect') {
         if (node.arguments.length > 0) {
+          // 1. Skip if dependency array is empty [] (mount-only effect cannot loop)
+          let isEmptyDeps = false;
+          if (node.arguments.length > 1) {
+            const deps = node.arguments[1];
+            if (ts.isArrayLiteralExpression(deps) && deps.elements.length === 0) {
+              isEmptyDeps = true;
+            }
+          }
+
           const effectFn = node.arguments[0];
-          if ((ts.isArrowFunction(effectFn) || ts.isFunctionExpression(effectFn)) && ts.isBlock(effectFn.body)) {
-            for (const s of effectFn.body.statements) {
-              if (ts.isExpressionStatement(s) && ts.isCallExpression(s.expression)) {
-                const callName = s.expression.expression.getText(sourceFile);
-                if (/^set[A-Z]/.test(callName)) {
-                  report(
-                    'RULE-EFFECT-GUARD',
-                    s.expression,
-                    `Lệnh "${callName}" gọi trực tiếp trong useEffect mà không có guard điều kiện (if). Có nguy cơ gây re-render loop.`,
-                    'Bọc lệnh setState trong khối điều kiện kiểm tra (if (data && data !== localState)).',
-                    s.expression.getText(sourceFile),
-                    PRIORITIES.MEDIUM,
-                    'missing-effect-guard'
-                  );
+          if (!isEmptyDeps && (ts.isArrowFunction(effectFn) || ts.isFunctionExpression(effectFn)) && ts.isBlock(effectFn.body)) {
+            // 2. Check if effect contains early-return guard (e.g. if (!isOpen || !account) return;)
+            const hasEarlyReturn = effectFn.body.statements.some((st) => {
+              if (ts.isIfStatement(st)) {
+                if (ts.isReturnStatement(st.thenStatement)) return true;
+                if (ts.isBlock(st.thenStatement) && st.thenStatement.statements.some((bts) => ts.isReturnStatement(bts))) return true;
+              }
+              return false;
+            });
+
+            if (!hasEarlyReturn) {
+              for (const s of effectFn.body.statements) {
+                if (ts.isExpressionStatement(s) && ts.isCallExpression(s.expression)) {
+                  const callName = s.expression.expression.getText(sourceFile);
+                  if (/^set[A-Z]/.test(callName)) {
+                    // Check if setter uses functional update with comparison bailout (prev === next ? prev : next)
+                    let isGuardedUpdate = false;
+                    if (s.expression.arguments.length > 0) {
+                      const arg0 = s.expression.arguments[0];
+                      if (ts.isArrowFunction(arg0) || ts.isFunctionExpression(arg0)) {
+                        const updaterText = arg0.getText(sourceFile);
+                        if (updaterText.includes('===') && updaterText.includes('?')) {
+                          isGuardedUpdate = true;
+                        }
+                      }
+                    }
+
+                    if (!isGuardedUpdate) {
+                      report(
+                        'RULE-EFFECT-GUARD',
+                        s.expression,
+                        `Lệnh "${callName}" gọi trực tiếp trong useEffect mà không có guard điều kiện (if) hoặc early return. Có nguy cơ kích hoạt lượt render thừa.`,
+                        'Bọc lệnh setState trong khối điều kiện kiểm tra (if (data && data !== localState)) hoặc sử dụng early return.',
+                        s.expression.getText(sourceFile),
+                        PRIORITIES.MEDIUM,
+                        'missing-effect-guard'
+                      );
+                    }
+                  }
                 }
               }
             }
@@ -658,22 +692,28 @@ export function runSourceAstPack(context, filePath) {
 
   // RULE-LOADING-001: isFetching vs isLoading for Table
   if (filePath.endsWith('.tsx') || filePath.endsWith('.jsx')) {
-    const tableLoadingRegex = /<(?:Table|DataTable)\b[^>]*\bloading\s*=\s*\{\s*isLoading\s*\}/g;
-    let tlMatch;
-    while ((tlMatch = tableLoadingRegex.exec(content)) !== null) {
-      context.recordRequirement('API.LOADING.FETCHING');
-      const { line, character } = sourceFile.getLineAndCharacterOfPosition(tlMatch.index);
-      context.addFinding({
-        ruleCode: 'RULE-LOADING-001',
-        subcheck: 'loading-prop-is-loading-only',
-        requirementIds: ['API.LOADING.FETCHING'],
-        priority: PRIORITIES.MEDIUM,
-        confidence: 'proven',
-        location: { path: filePath, line: line + 1, column: character + 1 },
-        message: 'Table truyền prop loading={isLoading}. Nên dùng loading={isFetching || isLoading} để hiển thị trạng thái khi chuyển trang/lọc.',
-        suggestion: 'Đổi thành: loading={isFetching || isLoading}',
-        evidence: tlMatch[0],
-      });
+    // Only flag if the component directly calls a query hook or has isFetching in scope.
+    // Pure presentation tables (receiving isLoading as prop) should not be flagged.
+    const hasQueryHook = /use[A-Z0-9].*Query\(/.test(content);
+    const hasFetchingInScope = /\bisFetching\b/.test(content);
+    if (hasQueryHook || hasFetchingInScope) {
+      const tableLoadingRegex = /<(?:Table|DataTable)\b[^>]*\bloading\s*=\s*\{\s*isLoading\s*\}/g;
+      let tlMatch;
+      while ((tlMatch = tableLoadingRegex.exec(content)) !== null) {
+        context.recordRequirement('API.LOADING.FETCHING');
+        const { line, character } = sourceFile.getLineAndCharacterOfPosition(tlMatch.index);
+        context.addFinding({
+          ruleCode: 'RULE-LOADING-001',
+          subcheck: 'loading-prop-is-loading-only',
+          requirementIds: ['API.LOADING.FETCHING'],
+          priority: PRIORITIES.MEDIUM,
+          confidence: 'proven',
+          location: { path: filePath, line: line + 1, column: character + 1 },
+          message: 'Table truyền prop loading={isLoading}. Nên dùng loading={isFetching || isLoading} để hiển thị trạng thái khi chuyển trang/lọc.',
+          suggestion: 'Đổi thành: loading={isFetching || isLoading}',
+          evidence: tlMatch[0],
+        });
+      }
     }
   }
 
