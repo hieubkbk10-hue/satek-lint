@@ -40,4 +40,10 @@ describe('CLI Integration Tests', () => {
     const { stdout } = await execFileAsync('node', [CLI_PATH, '--coverage']);
     assert.ok(stdout.includes('STANDARDS TRACEABILITY MATRIX'));
   });
+
+  it('should render summary audit report at bottom in text mode', async () => {
+    const { stdout } = await execFileAsync('node', [CLI_PATH, '--format=text', path.resolve('test/fixtures/SampleComponent.tsx')]);
+    assert.ok(stdout.includes('SATEK LINTER V3 — AST ADVISORY AUDIT REPORT'));
+    assert.ok(stdout.includes('TỈ LỆ TUÂN THỦ CHUẨN'));
+  });
 });

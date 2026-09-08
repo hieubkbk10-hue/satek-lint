@@ -132,10 +132,29 @@ export function startInteractiveDashboard(results, summary, projectInfo = {}) {
           const f = filteredFiles[i];
           const isSelected = i === selectedFileIdx;
           const pointer = isSelected ? `${COLORS.bright}${COLORS.cyan}>${COLORS.reset}` : ' ';
-          const fName = isSelected ? `${COLORS.bright}${COLORS.white}${COLORS.bgDark} ${f.relativePath} ${COLORS.reset}` : `${COLORS.yellow}${f.relativePath}${COLORS.reset}`;
-          const errCount = `${COLORS.red}${f.violations.length} lỗi${COLORS.reset}`;
 
-          console.log(` ${pointer} ${fName} ${COLORS.dim}—${COLORS.reset} ${errCount}`);
+          const fViolations = f.violations || [];
+          let fColor = COLORS.yellow;
+          let fBadge = `${COLORS.yellow}${fViolations.length} cảnh báo${COLORS.reset}`;
+          if (fViolations.some((v) => v.priority === 'HIGH' || v.severity === 'CRITICAL')) {
+            fColor = COLORS.red;
+            fBadge = `${COLORS.red}${fViolations.length} lỗi${COLORS.reset}`;
+          } else if (fViolations.some((v) => v.priority === 'MEDIUM' || v.severity === 'MAJOR')) {
+            fColor = COLORS.yellow;
+            fBadge = `${COLORS.yellow}${fViolations.length} cảnh báo${COLORS.reset}`;
+          } else if (fViolations.some((v) => v.priority === 'RECOMMEND')) {
+            fColor = COLORS.bright + COLORS.cyan;
+            fBadge = `${COLORS.bright}${COLORS.cyan}${fViolations.length} khuyến nghị${COLORS.reset}`;
+          } else if (fViolations.some((v) => v.priority === 'LOW')) {
+            fColor = COLORS.cyan;
+            fBadge = `${COLORS.cyan}${fViolations.length} lưu ý${COLORS.reset}`;
+          }
+
+          const fName = isSelected
+            ? `${COLORS.bright}${COLORS.white}${COLORS.bgDark} ${f.relativePath} ${COLORS.reset}`
+            : `${fColor}${f.relativePath}${COLORS.reset}`;
+
+          console.log(` ${pointer} ${fName} ${COLORS.dim}—${COLORS.reset} ${fBadge}`);
         }
 
         console.log(divider);
@@ -143,8 +162,25 @@ export function startInteractiveDashboard(results, summary, projectInfo = {}) {
         // 4. BOTTOM PANE: CHI TIẾT TẤT CẢ LỖI (HIỆN HẾT KHÔNG CẮT BỚT BẰNG ...)
         if (selectedFile) {
           const vCount = selectedFile.violations.length;
+          const fViolations = selectedFile.violations || [];
+          let detailLabel = 'CẢNH BÁO';
+          let detailColor = COLORS.yellow;
+          if (fViolations.some((v) => v.priority === 'HIGH' || v.severity === 'CRITICAL')) {
+            detailLabel = 'LỖI NGHIÊM TRỌNG';
+            detailColor = COLORS.red;
+          } else if (fViolations.some((v) => v.priority === 'MEDIUM' || v.severity === 'MAJOR')) {
+            detailLabel = 'CẢNH BÁO';
+            detailColor = COLORS.yellow;
+          } else if (fViolations.some((v) => v.priority === 'RECOMMEND')) {
+            detailLabel = 'KHUYẾN NGHỊ';
+            detailColor = COLORS.bright + COLORS.cyan;
+          } else if (fViolations.some((v) => v.priority === 'LOW')) {
+            detailLabel = 'LƯU Ý';
+            detailColor = COLORS.cyan;
+          }
+
           console.log(
-            ` ${COLORS.bright}${COLORS.cyan}CHI TIẾT TOÀN BỘ ${vCount} LỖI:${COLORS.reset} ${COLORS.bright}${COLORS.white}${selectedFile.relativePath}${COLORS.reset}`
+            ` ${COLORS.bright}${detailColor}CHI TIẾT TOÀN BỘ ${vCount} ${detailLabel}:${COLORS.reset} ${COLORS.bright}${COLORS.white}${selectedFile.relativePath}${COLORS.reset}`
           );
 
           // Hiển thị toàn bộ các lỗi của file hiện tại

@@ -74,6 +74,48 @@ export function renderRuleCatalog(format = 'text', filter = null) {
   return 0;
 }
 
+function getFileHeaderStyle(violations = []) {
+  const hasHigh = violations.some((v) => v.priority === 'HIGH' || v.severity === 'CRITICAL');
+  const hasMedium = violations.some((v) => v.priority === 'MEDIUM' || v.severity === 'MAJOR');
+  const hasRecommend = violations.some((v) => v.priority === 'RECOMMEND');
+  const hasLow = violations.some((v) => v.priority === 'LOW');
+
+  if (hasHigh) {
+    const isOnlyHigh = violations.every((v) => v.priority === 'HIGH' || v.severity === 'CRITICAL');
+    return {
+      icon: '✖',
+      color: COLORS.bright + COLORS.red,
+      label: isOnlyHigh ? 'lỗi' : 'lỗi/cảnh báo',
+    };
+  }
+  if (hasMedium) {
+    return {
+      icon: '⚠',
+      color: COLORS.bright + COLORS.yellow,
+      label: 'cảnh báo',
+    };
+  }
+  if (hasRecommend) {
+    return {
+      icon: '💡',
+      color: COLORS.bright + COLORS.cyan,
+      label: 'khuyến nghị',
+    };
+  }
+  if (hasLow) {
+    return {
+      icon: 'ℹ',
+      color: COLORS.cyan,
+      label: 'lưu ý',
+    };
+  }
+  return {
+    icon: 'ℹ',
+    color: COLORS.dim,
+    label: 'thông tin',
+  };
+}
+
 export function renderScanResults({
   results = [],
   summary = {},
@@ -119,7 +161,10 @@ export function renderScanResults({
       return;
     }
 
-    console.log(`${COLORS.bright}${COLORS.yellow}⚠ ${fileRes.relativePath}${COLORS.reset} ${COLORS.dim}(${fileRes.violations.length} cảnh báo)${COLORS.reset}`);
+    const header = getFileHeaderStyle(fileRes.violations);
+    console.log(
+      `${header.color}${header.icon} ${fileRes.relativePath}${COLORS.reset} ${COLORS.dim}(${fileRes.violations.length} ${header.label})${COLORS.reset}`
+    );
     fileRes.violations.forEach((v) => {
       const priColor =
         v.priority === 'HIGH'
