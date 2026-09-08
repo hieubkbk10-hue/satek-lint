@@ -586,6 +586,12 @@ export function runSourceAstPack(context, filePath) {
     while ((radiusMatch = radiusRegex.exec(content)) !== null) {
       if (content.includes('-- CUSTOM_RADIUS')) continue;
       const { line, character } = sourceFile.getLineAndCharacterOfPosition(radiusMatch.index);
+      const dirMatch = radiusMatch[0].match(/\b(?:[a-zA-Z0-9_-]+:)*(rounded-(?:t|b|l|r|tl|tr|bl|br|s|e|ss|se|ee|es))/);
+      let suggestion = 'Thay bằng 4 semantic tokens: rounded-card, rounded-field, rounded-tile, rounded-pill (hoặc rounded-full/rounded-none).';
+      if (dirMatch) {
+        const dir = dirMatch[1];
+        suggestion = `Nếu là bo góc 1 chiều (${dir}-*), hãy dùng biến thể 1 chiều tương ứng (${dir}-card, ${dir}-tile...) hoặc ${dir}-[inherit] để tránh làm méo cạnh tiếp giáp.`;
+      }
       context.addFinding({
         ruleCode: 'RULE-RADIUS-001',
         subcheck: 'hardcoded-arbitrary-radius',
@@ -594,7 +600,7 @@ export function runSourceAstPack(context, filePath) {
         confidence: 'proven',
         location: { path: filePath, line: line + 1, column: character + 1 },
         message: `Không dùng class bo góc arbitrary "${radiusMatch[0]}".`,
-        suggestion: 'Thay bằng 4 semantic tokens: rounded-card, rounded-field, rounded-tile, rounded-pill (hoặc rounded-full/rounded-none).',
+        suggestion,
         evidence: radiusMatch[0],
       });
     }

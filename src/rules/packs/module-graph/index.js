@@ -463,62 +463,9 @@ export function runModuleGraphPack(context) {
       } catch (_) {}
     }
 
-    // 2. Unused Keys Check in vi/common.ts
-    const viCommonPath = path.join(localesDir, 'vi', 'common.ts');
-    if (fs.existsSync(viCommonPath)) {
-      try {
-        const viContent = fs.readFileSync(viCommonPath, 'utf8');
-        const lines = viContent.split('\n');
-        const keysToCheck = [];
-
-        lines.forEach((lineText, idx) => {
-          const m = lineText.match(/^\s*(?:'([^']+)'|"([^"]+)"|([a-zA-Z0-9_-]+))\s*:/);
-          if (m) {
-            const k = m[1] || m[2] || m[3];
-            if (k && k !== 'common' && !k.startsWith('//') && k.length > 2) {
-              keysToCheck.push({ key: k, line: idx + 1, raw: lineText.trim() });
-            }
-          }
-        });
-
-        if (keysToCheck.length > 0) {
-          // Collect text across all project source files to prevent false positives
-          let allSrcText = '';
-          const srcDir = path.join(projectRoot, 'src');
-          if (fs.existsSync(srcDir)) {
-            const scanSrcForText = (dir) => {
-              const entries = fs.readdirSync(dir, { withFileTypes: true });
-              for (const ent of entries) {
-                const full = path.join(dir, ent.name);
-                if (ent.isDirectory()) {
-                  if (ent.name !== 'locales' && ent.name !== 'node_modules' && ent.name !== 'dist') {
-                    scanSrcForText(full);
-                  }
-                } else if (/\.(?:tsx?|jsx?)$/.test(ent.name)) {
-                  allSrcText += fs.readFileSync(full, 'utf8') + '\n';
-                }
-              }
-            };
-            scanSrcForText(srcDir);
-          }
-
-          for (const { key, line, raw } of keysToCheck) {
-            if (!allSrcText.includes(key)) {
-              report(
-                'RULE-I18N-002',
-                viCommonPath,
-                line,
-                1,
-                `Translation key "${key}" không được bất kỳ file nào trong src/ sử dụng.`,
-                `Xóa bỏ translation key "${key}" để giảm kích thước bundle.`,
-                raw,
-                PRIORITIES.MEDIUM,
-                'unused-locale-key'
-              );
-            }
-          }
-        }
-      } catch (_) {}
-    }
+    // 2. Unused Keys Check: Exempt common.ts and index.ts per i18n.md §2.1
+    // src/locales/vi/common.ts is the system-wide domain-agnostic SSOT dictionary
+    // containing generic confirmation dialogs, validation messages (Required), and core actions.
+    // It must NEVER be flagged as unused to prevent breaking system dialogs or form validation.
   }
 }
