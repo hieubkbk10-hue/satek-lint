@@ -113,17 +113,17 @@ export async function runRepositoryPack(context) {
       }
     }
 
-    // RULE-REPO-004: Conventional Commits (ignore automated merge commits)
+    // RULE-REPO-004: Conventional Commits (chỉ kiểm tra các commit cục bộ chưa push)
     for (const commit of gitMetadata.recentCommits) {
       if (commit.subject && !commit.subject.startsWith('Merge ') && !CONVENTIONAL_COMMIT_REGEX.test(commit.subject)) {
         report(
           'RULE-REPO-004',
           context.projectRoot,
-          `Thông điệp commit "${commit.subject}" (${commit.hash}) không tuân thủ chuẩn Conventional Commits (8 loại: feat, fix, docs, style, refactor, test, chore, perf).`,
-          'Viết commit theo mẫu: feat(auth): add login form hoặc fix(cart): resolve total price rounding.',
+          `Thông điệp commit chưa push "${commit.subject}" (${commit.hash}) không tuân thủ chuẩn Conventional Commits (8 loại: feat, fix, docs, style, refactor, test, chore, perf).`,
+          'Sửa thông điệp commit trước khi push bằng lệnh: git commit --amend -m "feat(module): description" (hoặc git rebase -i).',
           commit.subject,
           PRIORITIES.LOW,
-          'non-conventional-commit',
+          'non-conventional-unpushed-commit',
           ['CODE.REPO.COMMITS']
         );
       }

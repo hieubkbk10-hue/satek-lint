@@ -50,27 +50,27 @@ export function runSourceAstPack(context, filePath) {
           );
         }
 
-        // RULE-MOCK-002: Production Code Importing From Mock Modules
+        // RULE-MOCK-002: Production Code Importing From Mock Modules (Tagged as RECOMMEND for WIP/waiting backend API)
         if (!isMockFile && (spec.includes('@/mocks') || spec.includes('/mocks/') || spec.startsWith('../mocks'))) {
           const isApiSlice = normPath.includes('/store/api/');
           if (isApiSlice) {
             report(
               'RULE-MOCK-002',
               stmt,
-              `Endpoint API slice "${fileName}" đang sử dụng dữ liệu mock từ "${spec}". (Nợ kỹ thuật: Chờ API backend thật).`,
+              `Endpoint API slice "${fileName}" đang tạm thời sử dụng dữ liệu mock từ "${spec}". (Nợ kỹ thuật: Chờ API backend thật).`,
               'Chuyển đổi queryFn bọc mock thành query: (params) => ({ url: "...", params }) khi backend deploy API.',
               spec,
-              PRIORITIES.MEDIUM,
+              PRIORITIES.RECOMMEND,
               'api-slice-mock-adapter'
             );
           } else {
             report(
               'RULE-MOCK-002',
               stmt,
-              `Mã nguồn UI/State production không được import dữ liệu mock từ "${spec}". Có nguy cơ gây sai lệch dữ liệu người dùng và luồng thanh toán.`,
-              'Sử dụng RTK Query hooks hoặc API service thực tế thay cho mock module.',
+              `Mã nguồn UI/State "${fileName}" đang tạm thời sử dụng dữ liệu mock từ "${spec}".`,
+              'Khuyến nghị: Thay thế bằng RTK Query hooks hoặc API service thực tế khi backend hoàn tất API.',
               spec,
-              PRIORITIES.HIGH,
+              PRIORITIES.RECOMMEND,
               'production-mock-import'
             );
           }
@@ -774,5 +774,99 @@ export function runSourceAstPack(context, filePath) {
       suggestion: 'Giải thích lý do hoặc dùng prefix quy ước như // QUYỀN:, // LOGIC:, // UI:.',
       evidence: commentMatch[0],
     });
+  }
+
+  // ==========================================================================
+  // FORM & VALIDATION RULES (form_and_validation_rules.md & form_and_validation_guide.md)
+  // ==========================================================================
+
+  // RULE-FORM-001: Anti-Form State Fragmentation / Formik + Yup Mandate
+  if (filePath.endsWith('.tsx') || filePath.endsWith('.jsx')) {
+    const isFormModal = /(?:Modal|Form|Create|Edit|Adjust)[A-Za-z0-9]*\.(?:tsx|jsx)$/.test(fileName);
+    const isExcluded = fileName.includes('Table') || fileName.includes('Detail') || fileName.includes('List');
+    if (isFormModal && !isExcluded && !content.includes('useFormik')) {
+      const stateMatches = [...content.matchAll(/\bconst\s+\[\s*([a-zA-Z0-9_-]+)\s*,\s*set[a-zA-Z0-9_-]+\s*\]\s*=\s*useState/g)];
+      const fieldStates = stateMatches
+        .map((m) => m[1])
+        .filter((s) => !/^(?:isOpen|isLoading|isSubmitting|isPending|isSuccess|show|open|visible|activeTab|step|error)$/i.test(s));
+
+      if (fieldStates.length >= 3) {
+        context.recordRequirement('FORM.FORMIK.YUP');
+        context.addFinding({
+          ruleCode: 'RULE-FORM-001',
+          subcheck: 'fragmented-form-state',
+          requirementIds: ['FORM.FORMIK.YUP'],
+          priority: PRIORITIES.RECOMMEND,
+          confidence: 'heuristic',
+          location: { path: filePath, line: 1, column: 1 },
+          message: `Biểu mẫu "${fileName}" có ${fieldStates.length} state trường nhập liệu rời rạc (${fieldStates.slice(0, 4).join(', ')}...). Theo form_and_validation_rules.md §1.1, form nghiệp vụ bắt buộc sử dụng Formik (useFormik) kết hợp Yup Validation Schema.`,
+          suggestion: 'Chuyển đổi sang useFormik({ initialValues, validationSchema, enableReinitialize: true, onSubmit }). Xem mẫu chuẩn tại form_and_validation_guide.md §1.',
+          evidence: fieldStates.slice(0, 4).join(', '),
+        });
+      }
+    }
+  }
+
+  // RULE-FORM-002: Pure Yup Schema Mandate (No trans in Schema Factory or Chains)
+  if (content.includes('Yup') || content.includes('yup')) {
+    // Check trans(...) inside Yup validator methods
+    const yupTransRegex = /(?:\bYup\.[a-zA-Z]+\(|\.(?:required|matches|min|max|email|test)\()\s*(?:trans|t)\(/g;
+    let ytMatch;
+    while ((ytMatch = yupTransRegex.exec(content)) !== null) {
+      context.recordRequirement('FORM.PURE.SCHEMA');
+      const { line, character } = sourceFile.getLineAndCharacterOfPosition(ytMatch.index);
+      context.addFinding({
+        ruleCode: 'RULE-FORM-002',
+        subcheck: 'trans-in-yup-schema',
+        requirementIds: ['FORM.PURE.SCHEMA'],
+        priority: PRIORITIES.RECOMMEND,
+        confidence: 'proven',
+        location: { path: filePath, line: line + 1, column: character + 1 },
+        message: 'Yup Validation Schema vi phạm Pure Schema Mandate (chứa lời gọi hàm dịch trans() trong schema chain). Schema ở Module Scope bắt buộc phải độc lập và chỉ chứa Raw English Keys.',
+        suggestion: "Bỏ trans() trong schema: dùng Yup.string().required('Name is required') và bọc {trans(formik.errors.name)} tại JSX để hỗ trợ chuyển ngữ Real-time (form_and_validation_rules.md §2.1).",
+        evidence: ytMatch[0],
+      });
+    }
+
+    // Check schema factory accepting trans parameter: createXSchema = (trans) =>
+    const schemaFactoryTransRegex = /(?:const|function)\s+(?:create[A-Za-z0-9]*Schema)\s*=\s*\([^)]*\btrans\b/g;
+    let sfMatch;
+    while ((sfMatch = schemaFactoryTransRegex.exec(content)) !== null) {
+      context.recordRequirement('FORM.PURE.SCHEMA');
+      const { line, character } = sourceFile.getLineAndCharacterOfPosition(sfMatch.index);
+      context.addFinding({
+        ruleCode: 'RULE-FORM-002',
+        subcheck: 'trans-arg-in-schema-factory',
+        requirementIds: ['FORM.PURE.SCHEMA'],
+        priority: PRIORITIES.RECOMMEND,
+        confidence: 'proven',
+        location: { path: filePath, line: line + 1, column: character + 1 },
+        message: 'Schema Factory nhận tham số hàm dịch trans. Tuyệt đối cấm truyền trans vào schema factory (form_and_validation_rules.md §2.1).',
+        suggestion: 'Xóa tham số trans khỏi schema factory và chỉ định nghĩa raw English translation keys.',
+        evidence: sfMatch[0],
+      });
+    }
+  }
+
+  // RULE-FORM-003: Anti-Race Condition on Custom Inputs (setFieldTouched with shouldValidate = false)
+  if (filePath.endsWith('.tsx') || filePath.endsWith('.jsx')) {
+    const setFieldTouchedRegex = /\.setFieldTouched\(\s*(['"][^'"]+['"])\s*,\s*true\s*(?:,\s*true\s*)?\)/g;
+    let sftMatch;
+    while ((sftMatch = setFieldTouchedRegex.exec(content)) !== null) {
+      context.recordRequirement('FORM.RACE.CONDITION');
+      const { line, character } = sourceFile.getLineAndCharacterOfPosition(sftMatch.index);
+      const fieldName = sftMatch[1];
+      context.addFinding({
+        ruleCode: 'RULE-FORM-003',
+        subcheck: 'setFieldTouched-race-condition',
+        requirementIds: ['FORM.RACE.CONDITION'],
+        priority: PRIORITIES.RECOMMEND,
+        confidence: 'proven',
+        location: { path: filePath, line: line + 1, column: character + 1 },
+        message: `Gọi setFieldTouched(${fieldName}, true) với shouldValidate = true trên Custom Input. Nguy cơ Race Condition khiến Formik validate trên state cũ rỗng (form_and_validation_rules.md §3.1).`,
+        suggestion: `Truyền đối số thứ ba là false: formik.setFieldTouched(${fieldName}, true, false) và để setFieldValue chịu trách nhiệm validate giá trị mới.`,
+        evidence: sftMatch[0],
+      });
+    }
   }
 }

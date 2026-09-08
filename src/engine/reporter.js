@@ -57,6 +57,8 @@ export function renderRuleCatalog(format = 'text', filter = null) {
         ? COLORS.red
         : rule.severity === RULE_PRIORITY.MEDIUM || rule.severity === 'MAJOR'
         ? COLORS.yellow
+        : rule.severity === 'RECOMMEND'
+        ? COLORS.bright + COLORS.cyan
         : COLORS.cyan;
 
     const scopeText = rule.scope || (Array.isArray(rule.appliesTo) ? rule.appliesTo.join(', ') : 'Toàn bộ dự án');
@@ -108,26 +110,7 @@ export function renderScanResults({
     return 0;
   }
 
-  const cleanFilesCount = summary.cleanFiles ?? Math.max(0, summary.totalFiles - summary.filesWithViolations);
-
-  console.log(`\n========================================================================================`);
-  console.log(`🛡️  SATEK LINTER V3 — AST ADVISORY AUDIT REPORT`);
-  console.log(`========================================================================================`);
-  console.log(`- Tệp tin đã quét        : ${summary.totalFiles} files (${COLORS.red}${summary.filesWithViolations} files có cảnh báo${COLORS.reset}, ${COLORS.green}${cleanFilesCount} files chuẩn${COLORS.reset})`);
-  console.log(`- Tổng số vị trí cảnh báo: ${summary.totalViolations > 0 ? COLORS.yellow + COLORS.bright : COLORS.green}${summary.totalViolations}${COLORS.reset}`);
-  if (summary.byPriority) {
-    console.log(`  • HIGH   : ${COLORS.red}${summary.byPriority.HIGH || 0}${COLORS.reset}`);
-    console.log(`  • MEDIUM : ${COLORS.yellow}${summary.byPriority.MEDIUM || 0}${COLORS.reset}`);
-    console.log(`  • LOW    : ${COLORS.cyan}${summary.byPriority.LOW || 0}${COLORS.reset}`);
-    console.log(`  • INFO   : ${COLORS.dim}${summary.byPriority.INFO || 0}${COLORS.reset}`);
-  }
-  console.log(`- TỈ LỆ TUÂN THỦ CHUẨN   : ${COLORS.bright}${summary.totalViolations === 0 ? COLORS.green : COLORS.yellow}${summary.complianceRate}%${COLORS.reset}`);
-  if (timings && timings.totalMs) {
-    console.log(`- Thời gian thực thi     : ${timings.totalMs}ms (Parse: ${timings.astMs || 0}ms, Graph: ${timings.graphMs || 0}ms, Rules: ${(timings.queryMs || 0) + (timings.listMs || 0)}ms)`);
-  }
-  console.log(`========================================================================================\n`);
-
-  // In chi tiết các vi phạm
+  // 1. In chi tiết các tệp tin và vi phạm trước
   results.forEach((fileRes) => {
     if (fileRes.violations.length === 0 && !isVerbose) return;
 
@@ -139,7 +122,15 @@ export function renderScanResults({
     console.log(`${COLORS.bright}${COLORS.yellow}⚠ ${fileRes.relativePath}${COLORS.reset} ${COLORS.dim}(${fileRes.violations.length} cảnh báo)${COLORS.reset}`);
     fileRes.violations.forEach((v) => {
       const priColor =
-        v.priority === 'HIGH' ? COLORS.red : v.priority === 'MEDIUM' ? COLORS.yellow : COLORS.cyan;
+        v.priority === 'HIGH'
+          ? COLORS.red
+          : v.priority === 'MEDIUM'
+          ? COLORS.yellow
+          : v.priority === 'RECOMMEND'
+          ? COLORS.bright + COLORS.cyan
+          : v.priority === 'LOW'
+          ? COLORS.cyan
+          : COLORS.dim;
       console.log(`   Line ${v.line}:${v.column || 1} [${priColor}${v.priority || 'MEDIUM'}${COLORS.reset}] [${COLORS.bright}${v.ruleCode}${COLORS.reset}]: ${v.codeSnippet}`);
       if (v.fix) {
         console.log(`     👉 ${COLORS.green}${v.fix}${COLORS.reset}`);
@@ -147,6 +138,27 @@ export function renderScanResults({
     });
     console.log('');
   });
+
+  // 2. In BẢNG TỔNG KẾT KIỂM TOÁN Ở DƯỚI CÙNG (thuận tiện cho dev xem ngay tại terminal prompt)
+  const cleanFilesCount = summary.cleanFiles ?? Math.max(0, summary.totalFiles - summary.filesWithViolations);
+
+  console.log(`========================================================================================`);
+  console.log(`🛡️  SATEK LINTER V3 — AST ADVISORY AUDIT REPORT`);
+  console.log(`========================================================================================`);
+  console.log(`- Tệp tin đã quét        : ${summary.totalFiles} files (${COLORS.red}${summary.filesWithViolations} files có cảnh báo${COLORS.reset}, ${COLORS.green}${cleanFilesCount} files chuẩn${COLORS.reset})`);
+  console.log(`- Tổng số vị trí cảnh báo: ${summary.totalViolations > 0 ? COLORS.yellow + COLORS.bright : COLORS.green}${summary.totalViolations}${COLORS.reset}`);
+  if (summary.byPriority) {
+    console.log(`  • HIGH      : ${COLORS.red}${summary.byPriority.HIGH || 0}${COLORS.reset}`);
+    console.log(`  • MEDIUM    : ${COLORS.yellow}${summary.byPriority.MEDIUM || 0}${COLORS.reset}`);
+    console.log(`  • RECOMMEND : ${COLORS.bright}${COLORS.cyan}${summary.byPriority.RECOMMEND || 0}${COLORS.reset}`);
+    console.log(`  • LOW       : ${COLORS.cyan}${summary.byPriority.LOW || 0}${COLORS.reset}`);
+    console.log(`  • INFO      : ${COLORS.dim}${summary.byPriority.INFO || 0}${COLORS.reset}`);
+  }
+  console.log(`- TỈ LỆ TUÂN THỦ CHUẨN   : ${COLORS.bright}${summary.totalViolations === 0 ? COLORS.green : COLORS.yellow}${summary.complianceRate}%${COLORS.reset}`);
+  if (timings && timings.totalMs) {
+    console.log(`- Thời gian thực thi     : ${timings.totalMs}ms (Parse: ${timings.astMs || 0}ms, Graph: ${timings.graphMs || 0}ms, Rules: ${(timings.queryMs || 0) + (timings.listMs || 0)}ms)`);
+  }
+  console.log(`========================================================================================\n`);
 
   return 0; // Luôn trả 0 vì finding chỉ là advisory
 }

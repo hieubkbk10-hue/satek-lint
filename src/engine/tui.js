@@ -152,11 +152,13 @@ export function startInteractiveDashboard(results, summary, projectInfo = {}) {
           for (let vIdx = startVIdx; vIdx < selectedFile.violations.length; vIdx++) {
             const v = selectedFile.violations[vIdx];
             const sevBadge =
-              v.severity === 'CRITICAL'
-                ? `${COLORS.red}[CRITICAL]${COLORS.reset}`
-                : v.severity === 'MAJOR'
-                ? `${COLORS.yellow}[MAJOR]${COLORS.reset}`
-                : `${COLORS.dim}[${v.ruleCode}]${COLORS.reset}`;
+              v.priority === 'HIGH' || v.severity === 'CRITICAL'
+                ? `${COLORS.red}[HIGH]${COLORS.reset}`
+                : v.priority === 'MEDIUM' || v.severity === 'MAJOR'
+                ? `${COLORS.yellow}[MEDIUM]${COLORS.reset}`
+                : v.priority === 'RECOMMEND'
+                ? `${COLORS.bright}${COLORS.cyan}[RECOMMEND]${COLORS.reset}`
+                : `${COLORS.dim}[${v.priority || v.ruleCode}]${COLORS.reset}`;
 
             const lineTag = `${COLORS.dim}Dòng ${v.line}:${COLORS.reset}`;
             const snippet = (v.matchedText || v.codeSnippet || '').trim();

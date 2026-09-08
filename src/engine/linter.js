@@ -164,7 +164,7 @@ export async function runLintEngine(options = {}) {
   const results = [];
   let totalViolations = 0;
   let filesWithViolations = 0;
-  const byPriority = { HIGH: 0, MEDIUM: 0, LOW: 0, INFO: 0 };
+  const byPriority = { HIGH: 0, MEDIUM: 0, RECOMMEND: 0, LOW: 0, INFO: 0 };
 
   for (const [fPath, violations] of fileViolationsMap.entries()) {
     const rel = path.relative(projectInfo.projectRoot || cwd, fPath).replace(/\\/g, '/');

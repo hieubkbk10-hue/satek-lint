@@ -7,6 +7,7 @@
 export const RULE_PRIORITY = {
   HIGH: 'HIGH',
   MEDIUM: 'MEDIUM',
+  RECOMMEND: 'RECOMMEND',
   LOW: 'LOW',
   INFO: 'INFO',
 };
@@ -14,6 +15,7 @@ export const RULE_PRIORITY = {
 export const RULE_SEVERITY = {
   CRITICAL: 'HIGH',
   MAJOR: 'MEDIUM',
+  RECOMMEND: 'RECOMMEND',
   MINOR: 'LOW',
   INFO: 'INFO',
   HIGH: 'HIGH',
@@ -38,6 +40,7 @@ export const RULE_CATEGORY = {
   HTML_STANDARDS: 'HTML & Accessibility Standards',
   SECURITY: 'Security & Auth Storage Standards',
   CLEAN_CODE: 'Dead Code & Mock Data Hygiene',
+  FORM_VALIDATION: 'Form Management & Yup Validation',
 };
 
 export const RULES = [
@@ -886,5 +889,45 @@ export const RULES = [
     description: 'Mảng metadata cấu hình tab phải đặt ngoài component module scope; nhãn đa ngôn ngữ phải memoize qua useMemo(..., [trans]).',
     fix: 'Khai báo const FILTER_TAB_CONFIG bên ngoài component function.',
     appliesTo: ['Component', 'Page'],
+  },
+  {
+    code: 'RULE-MOCK-002',
+    name: 'Production Code Importing From Mock Modules',
+    category: RULE_CATEGORY.CLEAN_CODE,
+    severity: RULE_SEVERITY.RECOMMEND,
+    scope: 'Production code (src/**/*.{ts,tsx})',
+    description: 'Mã nguồn production đang sử dụng dữ liệu mock từ "@/mocks". Khuyến nghị thay thế bằng RTK Query hooks hoặc API service thực tế khi backend hoàn tất API.',
+    fix: 'Chuyển sang RTK Query hooks hoặc query: (params) => ({ url: "...", params }) khi backend deploy API.',
+    appliesTo: ['Component', 'API', 'Slice'],
+  },
+  {
+    code: 'RULE-FORM-001',
+    name: 'Form State Fragmentation / Formik + Yup Mandate',
+    category: RULE_CATEGORY.FORM_VALIDATION,
+    severity: RULE_SEVERITY.RECOMMEND,
+    scope: 'Modal & Form components (*Modal.tsx, *Form.tsx)',
+    description: 'Biểu mẫu nghiệp vụ bắt buộc sử dụng Formik (useFormik) kết hợp Yup Validation Schema, tránh phân mảnh nhiều useState rời rạc.',
+    fix: 'Chuyển đổi sang useFormik({ initialValues, validationSchema, enableReinitialize: true, onSubmit }). Xem mẫu tại form_and_validation_guide.md §1.',
+    appliesTo: ['Form', 'Modal'],
+  },
+  {
+    code: 'RULE-FORM-002',
+    name: 'Pure Yup Schema Mandate (No trans in Schema)',
+    category: RULE_CATEGORY.FORM_VALIDATION,
+    severity: RULE_SEVERITY.RECOMMEND,
+    scope: 'Yup validation schemas (*.ts, *.tsx)',
+    description: 'Yup schema ở Module Scope bắt buộc phải độc lập và chỉ chứa Raw English Keys. Tuyệt đối không truyền trans vào schema.',
+    fix: 'Bỏ trans() trong schema: dùng Yup.string().required(\'Name is required\') và bọc {trans(formik.errors.name)} tại JSX để đổi ngôn ngữ realtime.',
+    appliesTo: ['Schema', 'Component'],
+  },
+  {
+    code: 'RULE-FORM-003',
+    name: 'Anti-Race Condition in Custom Inputs (shouldValidate = false)',
+    category: RULE_CATEGORY.FORM_VALIDATION,
+    severity: RULE_SEVERITY.RECOMMEND,
+    scope: 'Custom input change handlers (*.tsx)',
+    description: 'Khi cập nhật Custom Input (React-Select), luôn truyền shouldValidate = false cho setFieldTouched để tránh Race Condition.',
+    fix: 'Sửa thành: formik.setFieldTouched(field, true, false) và để setFieldValue validate giá trị mới.',
+    appliesTo: ['Form', 'Component'],
   },
 ];

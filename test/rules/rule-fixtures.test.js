@@ -459,4 +459,68 @@ describe('Rule Fixture & Regression Tests', () => {
     );
     assert.strictEqual(allViolations.length, 2, 'Scan with all: true should report radius and i18n rules');
   });
+
+  it('RULE-FORM-001 & RULE-FORM-002 & RULE-FORM-003: Formik + Yup rules and RECOMMEND priority', async () => {
+    // 1. RULE-FORM-001: Modal with fragmented useState
+    const formModalFile = path.join(fixtureDir, 'CreateItemModal.tsx');
+    fs.writeFileSync(
+      formModalFile,
+      `
+      import { useState } from 'react';
+      export function CreateItemModal() {
+        const [name, setName] = useState('');
+        const [email, setEmail] = useState('');
+        const [phone, setPhone] = useState('');
+        return <div><input value={name} /></div>;
+      }
+      `,
+      'utf8'
+    );
+
+    const resForm1 = await runLintEngine({ path: formModalFile, cwd: process.cwd() });
+    const form1Violations = resForm1.findings.filter((f) => f.ruleCode === 'RULE-FORM-001');
+    assert.strictEqual(form1Violations.length, 1, 'Should flag modal with 3+ fragmented useState');
+    assert.strictEqual(form1Violations[0].priority, 'RECOMMEND', 'RULE-FORM-001 should have RECOMMEND priority');
+    assert.strictEqual(resForm1.summary.byPriority.RECOMMEND, 1, 'Summary should count RECOMMEND priority');
+
+    // 2. RULE-FORM-002: Pure Yup schema with trans()
+    const yupSchemaFile = path.join(fixtureDir, 'itemSchema.ts');
+    fs.writeFileSync(
+      yupSchemaFile,
+      `
+      import * as Yup from 'yup';
+      export const itemSchema = Yup.object().shape({
+        name: Yup.string().required(trans('Name is required')),
+      });
+      `,
+      'utf8'
+    );
+
+    const resForm2 = await runLintEngine({ path: yupSchemaFile, cwd: process.cwd() });
+    const form2Violations = resForm2.findings.filter((f) => f.ruleCode === 'RULE-FORM-002');
+    assert.strictEqual(form2Violations.length, 1, 'Should flag trans() inside Yup schema');
+
+    // 3. RULE-FORM-003: setFieldTouched missing false third argument
+    const raceSelectFile = path.join(fixtureDir, 'RaceModal.tsx');
+    fs.writeFileSync(
+      raceSelectFile,
+      `
+      export function RaceModal({ formik }) {
+        return (
+          <Select
+            onChange={(val) => {
+              formik.setFieldTouched('members', true);
+              formik.setFieldValue('members', val);
+            }}
+          />
+        );
+      }
+      `,
+      'utf8'
+    );
+
+    const resForm3 = await runLintEngine({ path: raceSelectFile, cwd: process.cwd() });
+    const form3Violations = resForm3.findings.filter((f) => f.ruleCode === 'RULE-FORM-003');
+    assert.strictEqual(form3Violations.length, 1, 'Should flag setFieldTouched with shouldValidate=true');
+  });
 });

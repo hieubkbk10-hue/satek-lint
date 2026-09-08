@@ -1,6 +1,7 @@
 export const PRIORITIES = {
   HIGH: 'HIGH',
   MEDIUM: 'MEDIUM',
+  RECOMMEND: 'RECOMMEND',
   LOW: 'LOW',
   INFO: 'INFO',
 };
@@ -8,8 +9,9 @@ export const PRIORITIES = {
 const PRIORITY_ORDER = {
   HIGH: 0,
   MEDIUM: 1,
-  LOW: 2,
-  INFO: 3,
+  RECOMMEND: 2,
+  LOW: 3,
+  INFO: 4,
 };
 
 function redactSensitiveData(text) {

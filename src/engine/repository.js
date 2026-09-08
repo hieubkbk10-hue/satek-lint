@@ -98,27 +98,60 @@ export class RepositoryReader {
       result.statusShort = statusOut.split('\n').map((l) => l.trim()).filter(Boolean);
       result.hasRouteTreeModified = result.statusShort.some((line) => line.includes('routeTree.gen.ts'));
 
-      // 3. Commits
-      const logArgs = baseRef
-        ? ['log', `${baseRef}..HEAD`, '--pretty=format:%h%x09%s', '-n', '20']
-        : ['log', '-5', '--pretty=format:%h%x09%s'];
+      // 3. Commits: Only check unpushed commits against remote tracking branch or baseRef
+      let unpushedCommits = [];
+      try {
+        let range = null;
+        if (baseRef) {
+          range = `${baseRef}..HEAD`;
+        } else {
+          // Probe upstream tracking branch
+          try {
+            const { stdout: upstreamOut } = await execFileAsync('git', ['rev-parse', '--abbrev-ref', '@{u}'], {
+              cwd: this.projectRoot,
+              timeout: 3000,
+            });
+            const upstream = upstreamOut.trim();
+            if (upstream) {
+              range = `${upstream}..HEAD`;
+            }
+          } catch (_) {
+            // No upstream configured, try origin/${result.branch}
+            try {
+              if (result.branch) {
+                await execFileAsync('git', ['rev-parse', '--verify', `origin/${result.branch}`], {
+                  cwd: this.projectRoot,
+                  timeout: 3000,
+                });
+                range = `origin/${result.branch}..HEAD`;
+              }
+            } catch (_) {
+              // Not on remote yet
+            }
+          }
+        }
 
-      const { stdout: logOut } = await execFileAsync('git', logArgs, {
-        cwd: this.projectRoot,
-        timeout: 5000,
-      });
+        if (range) {
+          const { stdout: logOut } = await execFileAsync('git', ['log', range, '--pretty=format:%h%x09%s', '-n', '50'], {
+            cwd: this.projectRoot,
+            timeout: 5000,
+          });
 
-      result.recentCommits = logOut
-        .split('\n')
-        .map((l) => l.trim())
-        .filter(Boolean)
-        .map((line) => {
-          const parts = line.split('\t');
-          return {
-            hash: parts[0] || '',
-            subject: parts[1] || '',
-          };
-        });
+          unpushedCommits = logOut
+            .split('\n')
+            .map((l) => l.trim())
+            .filter(Boolean)
+            .map((line) => {
+              const parts = line.split('\t');
+              return {
+                hash: parts[0] || '',
+                subject: parts[1] || '',
+              };
+            });
+        }
+      } catch (_) {}
+
+      result.recentCommits = unpushedCommits;
     } catch (_) {
       // Git command failed or not a git repository
       result.isGit = false;
